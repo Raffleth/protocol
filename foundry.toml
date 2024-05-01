@@ -1,0 +1,70 @@
+# Full reference https://github.com/foundry-rs/foundry/tree/master/crates/config
+
+[profile.default]
+  auto_detect_solc = false
+  block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
+  bytecode_hash = "none"
+  evm_version = "paris"           # See https://www.evmdiff.com/features?name=PUSH0&kind=opcode
+  fuzz = { runs = 1_000 }
+  gas_reports = ["*"]
+  optimizer = true
+  optimizer_runs = 10_000
+  out = "out"
+  script = "script"
+  solc = "0.8.25"
+  src = "src"
+  test = "test"
+  extra_output = ['storageLayout']
+  fs_permissions = [{ access = "read-write", path = "./"}]
+
+
+[profile.ci]
+  fuzz = { runs = 10_000 }
+  verbosity = 3
+
+[profile.optimized]
+  out = "out-optimized"
+  test = "test/mocks"
+  via_ir = true
+
+[etherscan]
+  arbitrum = { key = "${API_KEY_ARBISCAN}" }
+  avalanche = { key = "${API_KEY_SNOWTRACE}" }
+  bnb_smart_chain = { key = "${API_KEY_BSCSCAN}", chain = "56" }
+  mainnet = { key = "${API_KEY_ETHERSCAN}" }
+  optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
+  polygon = { key = "${API_KEY_POLYGONSCAN}" }
+  base = { key = "${API_KEY_BASESCAN}" }
+  blast = { key = "${API_KEY_BLASTSCAN}" }
+  sepolia = { key = "${API_KEY_ETHERSCAN}" }
+  optimism_sepolia = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
+  base_sepolia = { key = "${API_KEY_BASESCAN}" }
+
+[doc]
+  ignore = ["**/*.t.sol"]
+  out = "docs"
+  repository = "https://github.com/Unvest/protocol"
+
+[fmt]
+  bracket_spacing = true
+  int_types = "long"
+  line_length = 120
+  multiline_func_header = "all"
+  number_underscore = "thousands"
+  quote_style = "double"
+  tab_width = 4
+    wrap_comments = true
+
+[rpc_endpoints]
+  arbitrum = "https://arbitrum-mainnet.infura.io/v3/${API_KEY_INFURA}"
+  avalanche = "https://avalanche-mainnet.infura.io/v3/${API_KEY_INFURA}"
+  bnb_smart_chain = "https://bsc-dataseed.binance.org"
+  localhost = "http://localhost:8545"
+  mainnet = "https://mainnet.infura.io/v3/${API_KEY_INFURA}"
+  optimism = "https://optimism-mainnet.infura.io/v3/${API_KEY_INFURA}"
+  polygon = "https://polygon-mainnet.infura.io/v3/${API_KEY_INFURA}"
+  base = "https://mainnet.base.org"
+  blast = "https://rpc.blast.io"
+  sepolia = "https://sepolia.infura.io/v3/${API_KEY_INFURA}"
+  base_sepolia = "https://sepolia.base.org"
+  optimism_sepolia = "https://optimism-sepolia.infura.io/v3/${API_KEY_INFURA}"

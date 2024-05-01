@@ -1,0 +1,15 @@
+name: Install Repo
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: "Install Foundry"
+      uses: "foundry-rs/foundry-toolchain@v1"
+
+    - name: "Install Bun"
+      uses: "oven-sh/setup-bun@v1"
+
+    - name: "Install the Node.js dependencies"
+      shell: bash
+      run: "bun install"

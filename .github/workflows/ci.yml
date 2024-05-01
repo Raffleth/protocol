@@ -1,0 +1,33 @@
+name: "CI"
+
+env:
+  FOUNDRY_PROFILE: "ci"
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "main"
+    paths:
+      - src/**
+      - test/**
+      - foundry.toml
+      - remappings.txt
+      - package.json
+      - .github/workflows/ci.yml
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  build:
+    uses: ./.github/workflows/build.yml
+
+  test:
+    needs: ["lint", "build"]
+    uses: ./.github/workflows/test.yml
+
+  compare_gas_reports:
+    needs: ["test"]
+    uses: ./.github/workflows/compare-gas-reports.yml
