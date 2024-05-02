@@ -17,7 +17,7 @@ import { VRFCoordinatorV2PlusMock } from "../mocks/VRFCoordinatorV2PlusMock.sol"
 contract RafflAutomationTest is Common {
     Raffl raffl;
 
-    constructor() {
+    function setUp() public virtual {
         fundAndSetPrizes(raffleCreator);
 
         raffl = createNewRaffle(raffleCreator);
@@ -53,11 +53,9 @@ contract RafflAutomationTest is Common {
         rafflFactory.performUpkeep(performData);
     }
 
-    /// @dev should remove the created raffle from the `_activeRaffles` array after performUpkeep
-
     /// @dev should not be able to call performUpkeep for a raffle without deadline passed
     function test_RevertIf_PerformsUpkeepWithPendingRaffle() public {
-        (address activeRaffle, uint256 activeRafflIdx) = findActiveRaffle(raffl);
+        (address activeRaffle, uint256 activeRafflIdx,) = findActiveRaffle(raffl);
 
         bytes memory performData = abi.encode(activeRaffle, activeRafflIdx);
 
@@ -74,7 +72,7 @@ contract RafflAutomationTest is Common {
         assertTrue(raffl.criteriaMet());
         assertTrue(raffl.deadlineExpired());
 
-        (address activeRaffle, uint256 activeRafflIdx) = findActiveRaffle(raffl);
+        (address activeRaffle, uint256 activeRafflIdx,) = findActiveRaffle(raffl);
 
         bytes memory performData = abi.encode(activeRaffle, activeRafflIdx);
 
@@ -100,5 +98,18 @@ contract RafflAutomationTest is Common {
         rafflFactory.performUpkeep(performData);
 
         assertTrue(raffl.upkeepPerformed());
+    }
+
+    /// @dev should remove the created raffle from the `_activeRaffles` array after performUpkeep
+    function test_RemovesActiveRaffleAfterPerformUpkeep() public {
+        makeUserBuyEntries(raffl, userA, raffl.minEntries());
+        vm.warp(raffl.deadline() + 1);
+
+        performUpkeepOnActiveRaffl(raffl);
+
+        (address activeRaffle, uint256 activeRafflIdx, bool success) = findActiveRaffle(raffl);
+        assertEq(activeRaffle, address(0));
+        assertEq(activeRafflIdx, 0);
+        assertFalse(success);
     }
 }

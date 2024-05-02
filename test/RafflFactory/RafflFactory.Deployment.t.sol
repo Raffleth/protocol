@@ -49,7 +49,7 @@ contract RafflFactoryDeploymentTest is Common {
     }
 
     function test_IsChainlinkVRFConsumer() public view {
-        (,,, address[] memory consumers) = vrfCoordinator.getSubscription(chainlinkSubscriptionId);
+        (,,,, address[] memory consumers) = vrfCoordinator.getSubscription(chainlinkSubscriptionId);
         assertEq(address(rafflFactory), consumers[0]);
     }
 

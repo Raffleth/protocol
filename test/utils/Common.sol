@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-
 import { Raffl } from "../../src/Raffl.sol";
 import { IRaffl } from "../../src/interfaces/IRaffl.sol";
 import { RafflFactory } from "../../src/RafflFactory.sol";
@@ -130,14 +129,29 @@ abstract contract Common is Test {
         raffl.buyEntries{ value: value }(amount);
     }
 
-    function findActiveRaffle(Raffl raffl) public view returns (address activeRaffle, uint256 activeRaffleIdx) {
+    function findActiveRaffle(Raffl raffl)
+        public
+        view
+        returns (address activeRaffle, uint256 activeRaffleIdx, bool success)
+    {
         RafflFactory.ActiveRaffle[] memory activeRaffles = rafflFactory.activeRaffles();
 
         for (uint256 i = 0; i < activeRaffles.length; i++) {
             if (activeRaffles[i].raffle == address(raffl)) {
                 activeRaffle = address(raffl);
                 activeRaffleIdx = i;
+                success = true;
+
+                break;
             }
         }
+    }
+
+    function performUpkeepOnActiveRaffl(Raffl raffl) public {
+        (address activeRaffle, uint256 activeRafflIdx,) = findActiveRaffle(raffl);
+
+        bytes memory performData = abi.encode(activeRaffle, activeRafflIdx);
+
+        rafflFactory.performUpkeep(performData);
     }
 }
