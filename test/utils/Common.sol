@@ -121,6 +121,11 @@ abstract contract Common is Test {
         );
     }
 
+    function makeUserAcquireFreeEntries(Raffl raffl, address user) public {
+        vm.prank(user);
+        raffl.buyEntries(1);
+    }
+
     function makeUserBuyEntries(Raffl raffl, address user, uint256 amount) public {
         uint256 entryPrice = raffl.entryPrice();
         uint256 value = entryPrice * amount;

@@ -18,11 +18,11 @@ contract RafflEntriesWithNativeTest is Common {
 
     /// @dev should validate the quantity when buying entries
     function test_RevertIf_ZeroQuantityEntriesPurchase() public {
-        vm.deal(userA, ENTRY_PRICE * 5);
+        vm.deal(userA, entryPrice * 5);
 
         vm.expectRevert(RafflErrors.EntryQuantityRequired.selector);
         vm.prank(userA);
-        raffl.buyEntries{ value: ENTRY_PRICE * 5 }(0);
+        raffl.buyEntries{ value: entryPrice * 5 }(0);
     }
 
     /// @dev should validate the value when buying entries

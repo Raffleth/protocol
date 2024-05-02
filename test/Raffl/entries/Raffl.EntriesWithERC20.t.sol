@@ -43,7 +43,7 @@ contract RafflEntriesWithERC20Test is Common {
 
     /// @dev should validate the value when buying entries
     function test_RevertIf_TransferEntriesFailed() public {
-        vm.deal(userA, ENTRY_PRICE * 5);
+        vm.deal(userA, entryPrice * 5);
 
         vm.expectRevert(bytes("TFF"));
         vm.prank(userA);
@@ -68,7 +68,7 @@ contract RafflEntriesWithERC20Test is Common {
     }
 
     /// @dev should correctly increase the `pool` and `entries` state when buying entries
-    function test_IncresesPoolOnEntryPurchase() public {
+    function test_IncresesPoolOnERC20EntryPurchase() public {
         uint256 initialPool = raffl.pool();
         uint256 initialEntries = raffl.entries();
 
@@ -84,7 +84,7 @@ contract RafflEntriesWithERC20Test is Common {
     }
 
     /// @dev should set correctly the `entriesMap` and `userEntriesMap` when buying entries
-    function test_SetEntriesMapAndUserEntriesMap() public {
+    function test_SetERC20EntriesMapAndUserEntriesMap() public {
         uint256 lastEntry = raffl.entries();
 
         uint256 quantity = 7;
