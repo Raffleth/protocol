@@ -129,6 +129,16 @@ abstract contract Common is Test {
         raffl.buyEntries{ value: value }(amount);
     }
 
+    function makeUserBuyEntries(Raffl raffl, ERC20Mock entryAsset, address user, uint256 amount) public {
+        uint256 entryPrice = raffl.entryPrice();
+        uint256 value = entryPrice * amount;
+        deal(address(entryAsset), user, value);
+        vm.startPrank(user);
+        entryAsset.approve(address(raffl), value);
+        raffl.buyEntries(amount);
+        vm.stopPrank();
+    }
+
     function findActiveRaffle(Raffl raffl)
         public
         view

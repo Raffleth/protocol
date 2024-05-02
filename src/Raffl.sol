@@ -303,7 +303,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         if (entryToken != address(0)) {
             // Transfer the required amount of entryToken from user to contract
             // Assumes that the ERC-20 token follows the ERC-20 standard
-            TokenLib.safeTransferFrom(entryToken, msg.sender, address(this), entryPrice * quantity);
+            TokenLib.safeTransferFrom(entryToken, msg.sender, address(this), value);
         } else {
             // Check that the correct amount of Ether is sent
             if (msg.value != value) revert RafflErrors.EntriesPurchaseInvalidValue();
