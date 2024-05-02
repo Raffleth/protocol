@@ -23,6 +23,7 @@ abstract contract Common is Test {
     address userD = address(16);
     address externalUser = address(17);
     address attacker = address(18);
+    address userExtraRecipient = address(19);
 
     // Contracts
     VRFCoordinatorV2PlusMock vrfCoordinator;
