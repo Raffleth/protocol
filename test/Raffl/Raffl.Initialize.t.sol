@@ -14,18 +14,7 @@ import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
 
 contract RafflInitializeTest is Common {
     function setUp() public virtual {
-        deployErc20AndFund(raffleCreator);
-        deployErc721AndFund(raffleCreator);
-
-        // Approving prize spend
-        vm.startPrank(raffleCreator);
-        testERC20.approve(address(rafflFactory), ERC20_AMOUNT);
-        testERC721.approve(address(rafflFactory), ERC721_TOKEN_ID);
-        vm.stopPrank();
-
-        // Set prizes
-        prizes.push(IRaffl.Prize(address(testERC20), IRaffl.AssetType.ERC20, ERC20_AMOUNT));
-        prizes.push(IRaffl.Prize(address(testERC721), IRaffl.AssetType.ERC721, ERC721_TOKEN_ID));
+        fundAndSetPrizes(raffleCreator);
     }
 
     function test_RevertIf_Reinitializes() public {

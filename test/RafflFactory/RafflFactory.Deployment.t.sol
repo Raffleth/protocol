@@ -16,7 +16,7 @@ contract RafflFactoryDeploymentTest is Common {
             feeCollector,
             feePercentage,
             feePenality,
-            address(vrfCoordinatorV2Mock),
+            address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId
         );
@@ -29,7 +29,7 @@ contract RafflFactoryDeploymentTest is Common {
             address(0),
             feePercentage,
             feePenality,
-            address(vrfCoordinatorV2Mock),
+            address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId
         );
@@ -42,14 +42,14 @@ contract RafflFactoryDeploymentTest is Common {
             feeCollector,
             0.051 ether,
             feePenality,
-            address(vrfCoordinatorV2Mock),
+            address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId
         );
     }
 
     function test_IsChainlinkVRFConsumer() public view {
-        (,,, address[] memory consumers) = vrfCoordinatorV2Mock.getSubscription(chainlinkSubscriptionId);
+        (,,, address[] memory consumers) = vrfCoordinator.getSubscription(chainlinkSubscriptionId);
         assertEq(address(rafflFactory), consumers[0]);
     }
 
