@@ -27,7 +27,7 @@ library RafflErrors {
     error OnlyCreatorAllowed();
     error EntryQuantityRequired();
     error EntriesPurchaseClosed();
-    error EntriesPurchaseInvalidAmount();
+    error EntriesPurchaseInvalidValue();
     error RefundsOnlyAllowedOnFailedDraw();
     error UserWithoutEntries();
     error PrizesAlreadyRefunded();

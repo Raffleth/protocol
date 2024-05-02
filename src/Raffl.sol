@@ -69,8 +69,8 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
      *
      */
     event RaffleInitialized();
-    event EntriesBought(uint256 entriesBought, uint256 value);
-    event EntriesRefunded(uint256 entriesRefunded, uint256 value, address user);
+    event EntriesBought(address indexed user, uint256 entriesBought, uint256 value);
+    event EntriesRefunded(address indexed user, uint256 entriesRefunded, uint256 value);
     event PrizesRefunded();
     event DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries);
     event DeadlineSuccessCriteria(uint256 indexed requestId, uint256 entries, uint256 minEntries);
@@ -194,7 +194,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         } else {
             payable(user).transfer(value);
         }
-        emit EntriesRefunded(userEntries, value, user);
+        emit EntriesRefunded(user, userEntries, value);
     }
 
     // @inheritdoc IRaffl
@@ -306,7 +306,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
             TokenLib.safeTransferFrom(entryToken, msg.sender, address(this), entryPrice * quantity);
         } else {
             // Check that the correct amount of Ether is sent
-            if (msg.value != value) revert RafflErrors.EntriesPurchaseInvalidAmount();
+            if (msg.value != value) revert RafflErrors.EntriesPurchaseInvalidValue();
         }
 
         // Increments the pool value
@@ -327,7 +327,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         userEntriesMap[msg.sender] += quantity;
 
         // Emits the `EntriesBought` event
-        emit EntriesBought(quantity, value);
+        emit EntriesBought(msg.sender, quantity, value);
     }
 
     /**
@@ -346,7 +346,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         ++userEntriesMap[msg.sender];
 
         // Emits the `EntriesBought` event with zero `value`
-        emit EntriesBought(1, 0);
+        emit EntriesBought(msg.sender, 1, 0);
     }
 
     /**
