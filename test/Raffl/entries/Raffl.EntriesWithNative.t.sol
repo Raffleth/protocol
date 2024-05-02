@@ -14,7 +14,7 @@ import { IFeeManager } from "../../../src/interfaces/IFeeManager.sol";
 import { RafflErrors } from "../../../src/libraries/Errors.sol";
 import { VRFCoordinatorV2PlusMock } from "../../mocks/VRFCoordinatorV2PlusMock.sol";
 
-contract RafflEntriesTest is Common {
+contract RafflEntriesWithNativeTest is Common {
     Raffl raffl;
     uint256 entryPrice;
 
