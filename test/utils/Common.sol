@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { Test } from "forge-std/src/Test.sol";
+import { Test, Vm } from "forge-std/src/Test.sol";
+import { console2 } from "forge-std/src/console2.sol";
 
 import { Raffl } from "../../src/Raffl.sol";
 import { IRaffl } from "../../src/interfaces/IRaffl.sol";
@@ -162,11 +163,38 @@ abstract contract Common is Test {
         }
     }
 
-    function performUpkeepOnActiveRaffl(Raffl raffl) public {
+    function performUpkeepOnActiveRaffl(Raffl raffl) public returns (uint256 requestId) {
         (address activeRaffle, uint256 activeRafflIdx,) = findActiveRaffle(raffl);
 
         bytes memory performData = abi.encode(activeRaffle, activeRafflIdx);
 
+        bool criteriaMet = raffl.criteriaMet();
+
+        vm.recordLogs();
         rafflFactory.performUpkeep(performData);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        assertEq(entries.length, 2);
+        if (criteriaMet) {
+            assertEq(entries[1].topics[0], keccak256("DeadlineSuccessCriteria(uint256,uint256,uint256)"));
+            // DeadlineSuccessCriteria(uint256 indexed requestId, uint256 entries, uint256 minEntries);
+            requestId = uint256(entries[1].topics[1]);
+        }
+    }
+
+    function fullfillVRFOnActiveAndEligibleRaffle(
+        uint256 requestId,
+        address consumer
+    )
+        public
+        returns (address winnerUser)
+    {
+        vm.recordLogs();
+        vrfCoordinator.fulfillRandomWords(requestId, consumer);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        assertEq(entries[entries.length - 2].topics[0], keccak256("DrawSuccess(uint256,uint256,address,uint256)"));
+        // DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries)
+        (, winnerUser,) = abi.decode(entries[entries.length - 2].data, (uint256, address, uint256));
     }
 }

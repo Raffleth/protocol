@@ -1,19 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
-
 import { Raffl } from "../../../src/Raffl.sol";
 import { Common } from "../../utils/Common.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
-import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
-import { RafflFactory } from "../../../src/RafflFactory.sol";
 import { RafflErrors } from "../../../src/libraries/Errors.sol";
-import { IFeeManager } from "../../../src/interfaces/IFeeManager.sol";
-import { VRFCoordinatorV2PlusMock } from "../../mocks/VRFCoordinatorV2PlusMock.sol";
 
 contract RafflEntriesWithERC20Test is Common {
     Raffl raffl;
@@ -41,6 +32,12 @@ contract RafflEntriesWithERC20Test is Common {
         entryPrice = raffl.entryPrice();
     }
 
+    /// @dev should validate the quantity when buying entries
+    function test_RevertIf_ZeroQuantityEntriesPurchase() public {
+        vm.expectRevert(RafflErrors.EntryQuantityRequired.selector);
+        raffl.buyEntries(0);
+    }
+
     /// @dev should validate the value when buying entries
     function test_RevertIf_TransferEntriesFailed() public {
         vm.deal(userA, entryPrice * 5);
@@ -57,10 +54,9 @@ contract RafflEntriesWithERC20Test is Common {
 
         deal(address(entryAsset), userA, totalAmount);
 
-
         vm.startPrank(userA);
         entryAsset.approve(address(raffl), totalAmount);
-        
+
         vm.expectEmit(true, true, true, true, address(raffl));
         emit Raffl.EntriesBought(userA, quantity, totalAmount);
         raffl.buyEntries(quantity);
