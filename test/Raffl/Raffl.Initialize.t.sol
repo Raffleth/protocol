@@ -8,8 +8,6 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { Raffl } from "../../src/Raffl.sol";
 import { Common } from "../utils/Common.sol";
 import { IRaffl } from "../../src/interfaces/IRaffl.sol";
-import { RafflFactory } from "../../src/RafflFactory.sol";
-import { IFeeManager } from "../../src/interfaces/IFeeManager.sol";
 import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
 
 contract RafflInitializeTest is Common {
@@ -17,6 +15,7 @@ contract RafflInitializeTest is Common {
         fundAndSetPrizes(raffleCreator);
     }
 
+    /// @dev should only initialize once
     function test_RevertIf_Reinitializes() public {
         vm.startPrank(raffleCreator);
 
@@ -48,6 +47,7 @@ contract RafflInitializeTest is Common {
         vm.stopPrank();
     }
 
+    /// @dev should not allow to pass an expired deadline
     function test_RevertIf_ExpiredDeadline() public {
         vm.prank(raffleCreator);
         vm.expectRevert(RafflFactoryErrors.DeadlineIsNotFuture.selector);
@@ -56,6 +56,7 @@ contract RafflInitializeTest is Common {
         );
     }
 
+    /// @dev should not allow empty prizes
     function test_RevertIf_EmptyPrizes() public {
         vm.prank(raffleCreator);
         vm.expectRevert(RafflFactoryErrors.PrizesIsEmpty.selector);
@@ -70,6 +71,7 @@ contract RafflInitializeTest is Common {
         );
     }
 
+    /// @dev should not allow ERC-20 prize with no value
     function test_RevertIf_ERC20PrizeIsZero() public {
         IRaffl.Prize[] memory p = new IRaffl.Prize[](1);
         p[0] = (IRaffl.Prize(address(testERC20), IRaffl.AssetType.ERC20, 0));
@@ -81,6 +83,7 @@ contract RafflInitializeTest is Common {
         );
     }
 
+    /// @dev should have set the right arguments
     function test_SetRightRafflState() public {
         vm.prank(raffleCreator);
         Raffl raffl = Raffl(
@@ -102,6 +105,7 @@ contract RafflInitializeTest is Common {
         assertEq(raffl.factory(), address(rafflFactory));
     }
 
+    /// @dev should have the right prizes balances after being initialized
     function test_HasRightPrizesBalances() public {
         vm.prank(raffleCreator);
         Raffl raffl = Raffl(

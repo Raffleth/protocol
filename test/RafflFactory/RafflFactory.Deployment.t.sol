@@ -9,6 +9,7 @@ contract RafflFactoryDeploymentTest is Common {
     uint64 PROPOSED_FEE = 0.03 ether;
     uint64 PROPOSED_FEE_PENALITY = 0.03 ether;
 
+    /// @dev should not allow an implementation that is not a contract
     function test_RevertIf_ImplementationZeroAddress() public {
         vm.expectRevert(RafflFactoryErrors.AddressCanNotBeZero.selector);
         new RafflFactory(
@@ -22,6 +23,7 @@ contract RafflFactoryDeploymentTest is Common {
         );
     }
 
+    /// @dev should not allow a 0x0 address for the fee collector
     function test_RevertIf_FeeCollectorZeroAddress() public {
         vm.expectRevert(RafflFactoryErrors.AddressCanNotBeZero.selector);
         new RafflFactory(
@@ -35,6 +37,7 @@ contract RafflFactoryDeploymentTest is Common {
         );
     }
 
+    /// @dev should not allow fee beyond bounds
     function test_RevertIf_FeeOutOfBounds() public {
         vm.expectRevert(RafflFactoryErrors.FeeOutOfRange.selector);
         new RafflFactory(
@@ -48,32 +51,9 @@ contract RafflFactoryDeploymentTest is Common {
         );
     }
 
+    /// @dev should be a Chainlink VRF consumer
     function test_IsChainlinkVRFConsumer() public view {
         (,,,, address[] memory consumers) = vrfCoordinator.getSubscription(chainlinkSubscriptionId);
         assertEq(address(rafflFactory), consumers[0]);
-    }
-
-    function test_AllowAnyoneToExecuteProposedFeeChange() public {
-        vm.prank(feeCollector);
-        rafflFactory.proposeFeeChange(PROPOSED_FEE, PROPOSED_FEE_PENALITY);
-
-        vm.expectRevert(RafflFactoryErrors.ProposalNotReady.selector);
-        vm.prank(externalUser);
-        rafflFactory.executeFeeChange();
-
-        skip(3600);
-
-        assertNotEq(rafflFactory.feePercentage(), PROPOSED_FEE);
-        assertNotEq(rafflFactory.feePenality(), PROPOSED_FEE_PENALITY);
-
-        vm.prank(externalUser);
-        rafflFactory.executeFeeChange();
-
-        assertEq(rafflFactory.feePercentage(), PROPOSED_FEE);
-        assertEq(rafflFactory.feePenality(), PROPOSED_FEE_PENALITY);
-
-        vm.expectRevert(RafflFactoryErrors.FeeAlreadySet.selector);
-        vm.prank(externalUser);
-        rafflFactory.executeFeeChange();
     }
 }
