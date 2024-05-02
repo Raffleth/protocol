@@ -72,8 +72,8 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
     event EntriesBought(uint256 entriesBought, uint256 value);
     event EntriesRefunded(uint256 entriesRefunded, uint256 value, address user);
     event PrizesRefunded();
-    event DrawSuccess(uint256 requestId, uint256 winnerEntry, address user, uint256 entries);
-    event DeadlineSuccessCriteria(uint256 requestId, uint256 entries, uint256 minEntries);
+    event DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries);
+    event DeadlineSuccessCriteria(uint256 indexed requestId, uint256 entries, uint256 minEntries);
     event DeadlineFailedCriteria(uint256 entries, uint256 minEntries);
     event TokenGatingChanges();
 

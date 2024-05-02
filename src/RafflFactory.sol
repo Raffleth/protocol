@@ -31,11 +31,6 @@ import { IFeeManager } from "./interfaces/IFeeManager.sol";
  */
 contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, IFeeManager {
     /**
-     * @dev Chainlink VRF Coordinator
-     */
-    VRFConsumerBaseV2Plus immutable COORDINATOR;
-
-    /**
      * @dev Max gas to bump to
      */
     bytes32 keyHash;
@@ -53,7 +48,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
     /**
      * @dev Chainlink subscription ID
      */
-    uint64 public subscriptionId;
+    uint256 public subscriptionId;
 
     /**
      * @dev `feePercentage` is the new fee percentage that will be valid to be executed after `validFrom`.
@@ -187,7 +182,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         uint256 feePenalityValue,
         address vrfCoordinator,
         bytes32 _keyHash,
-        uint64 _subscriptionId
+        uint256 _subscriptionId
     )
         VRFConsumerBaseV2Plus(vrfCoordinator)
     {
@@ -204,15 +199,12 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         proposeFeeChange(feePercentageValue, feePenalityValue);
         setFeeCollector(feeCollectorAddress);
 
-        COORDINATOR = VRFConsumerBaseV2Plus(vrfCoordinator);
         keyHash = _keyHash;
         subscriptionId = _subscriptionId;
     }
 
     /**
      * @notice Increments the salt one step.
-     *
-     * @dev In the rare case that create2 fails, this function can be used to skip that particular salt.
      */
     function nextSalt() public {
         _salt = keccak256(abi.encode(_salt));
