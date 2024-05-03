@@ -7,16 +7,6 @@
     "email": "ja@raffl.xyz",
     "url": "https://raffl.xyz"
   },
-  "dependencies": {
-    "@chainlink/contracts": "^1.1.0",
-    "@openzeppelin/contracts": "^5.0.2",
-    "@openzeppelin/contracts-upgradeable": "^5.0.2"
-  },
-  "devDependencies": {
-    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
-    "prettier": "^3.2.5",
-    "solhint": "^4.5.4"
-  },
   "keywords": [
     "blockchain",
     "ethereum",
@@ -39,5 +29,15 @@
     "test": "forge test",
     "test:coverage": "forge coverage",
     "test:coverage:report": "forge coverage --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "^1.1.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2"
+  },
+  "devDependencies": {
+    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
+    "prettier": "^3.2.5",
+    "solhint": "^4.5.4"
   }
 }

@@ -2,7 +2,8 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 
@@ -29,7 +30,7 @@ contract RafflRefundCreatorWithPenaltyTest is Common {
     /// @dev should revert if creator does not pass required penality fee to refund prizes.
     function test_RevertIf_FeePenalityNotPassed() public {
         vm.prank(raffleCreator);
-        vm.expectRevert(RafflErrors.RefundPenalityRequired.selector);
+        vm.expectRevert(Errors.RefundPenalityRequired.selector);
         raffl.refundPrizes{ value: 0 }();
     }
 
@@ -41,7 +42,7 @@ contract RafflRefundCreatorWithPenaltyTest is Common {
 
         vm.startPrank(raffleCreator);
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.PrizesRefunded();
+        emit IRaffl.PrizesRefunded();
         raffl.refundPrizes{ value: feePenality }();
         vm.stopPrank();
     }

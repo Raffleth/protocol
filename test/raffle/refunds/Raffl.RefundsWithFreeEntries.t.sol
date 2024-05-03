@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 
@@ -41,7 +41,7 @@ contract RafflRefundWithFreeEntriesTest is Common {
         assertEq(address(raffl).balance, 0);
 
         vm.startPrank(userA);
-        vm.expectRevert(RafflErrors.WithoutRefunds.selector);
+        vm.expectRevert(Errors.WithoutRefunds.selector);
         raffl.refundEntries(userA);
         vm.stopPrank();
 

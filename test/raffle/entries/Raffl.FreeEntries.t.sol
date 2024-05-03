@@ -9,7 +9,7 @@ import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
 import { RafflFactory } from "../../../src/RafflFactory.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 import { IFeeManager } from "../../../src/interfaces/IFeeManager.sol";
 
 import { Common } from "../../utils/Common.sol";
@@ -43,7 +43,7 @@ contract RafflFreeEntriesTest is Common {
         vm.startPrank(userA);
         raffl.buyEntries(1);
 
-        vm.expectRevert(RafflErrors.MaxEntriesReached.selector);
+        vm.expectRevert(Errors.MaxEntriesReached.selector);
         raffl.buyEntries(1);
         vm.stopPrank();
     }
@@ -53,7 +53,7 @@ contract RafflFreeEntriesTest is Common {
         uint256 quantity = 666;
 
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.EntriesBought(userA, 1, 0);
+        emit IRaffl.EntriesBought(userA, 1, 0);
 
         vm.prank(userA);
         raffl.buyEntries(quantity);

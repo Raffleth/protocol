@@ -2,7 +2,8 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
@@ -35,7 +36,7 @@ contract RafflEntriesWithERC20Test is Common {
 
     /// @dev should validate the quantity when buying entries
     function test_RevertIf_ZeroQuantityEntriesPurchase() public {
-        vm.expectRevert(RafflErrors.EntryQuantityRequired.selector);
+        vm.expectRevert(Errors.EntryQuantityRequired.selector);
         raffl.buyEntries(0);
     }
 
@@ -59,7 +60,7 @@ contract RafflEntriesWithERC20Test is Common {
         entryAsset.approve(address(raffl), totalAmount);
 
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.EntriesBought(userA, quantity, totalAmount);
+        emit IRaffl.EntriesBought(userA, quantity, totalAmount);
         raffl.buyEntries(quantity);
         vm.stopPrank();
     }

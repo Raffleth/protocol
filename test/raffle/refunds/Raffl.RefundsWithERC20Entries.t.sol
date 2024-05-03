@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
@@ -47,7 +47,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
 
         vm.startPrank(userA);
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.EntriesRefunded(userA, quantity, amountPaid);
+        emit IRaffl.EntriesRefunded(userA, quantity, amountPaid);
         raffl.refundEntries(userA);
         vm.stopPrank();
 
@@ -63,7 +63,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
         raffl.refundEntries(userA);
 
         vm.prank(userA);
-        vm.expectRevert(RafflErrors.UserWithoutEntries.selector);
+        vm.expectRevert(Errors.UserWithoutEntries.selector);
         raffl.refundEntries(userA);
     }
 
@@ -72,7 +72,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
         processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(externalUser);
-        vm.expectRevert(RafflErrors.UserWithoutEntries.selector);
+        vm.expectRevert(Errors.UserWithoutEntries.selector);
         raffl.refundEntries(externalUser);
     }
 }

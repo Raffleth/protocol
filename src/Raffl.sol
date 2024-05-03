@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: None
-// Raffl Contracts (last updated v1.0.0) (Raffl.sol)
+// Raffl Protocol (last updated v1.0.0) (Raffl.sol)
 pragma solidity ^0.8.25;
 
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import { TokenLib } from "./libraries/TokenLib.sol";
-import { RafflErrors } from "./libraries/Errors.sol";
+import { Errors } from "./libraries/RafflErrors.sol";
 
 import { IRaffl } from "./interfaces/IRaffl.sol";
 import { IFeeManager } from "./interfaces/IFeeManager.sol";
@@ -21,61 +21,55 @@ import { IFeeManager } from "./interfaces/IFeeManager.sol";
                                                                        
  */
 
-/**
- * @title Raffl
- * @author JA <@ubinatus>
- * @notice Raffl is a decentralized platform built on the Ethereum blockchain,
- * allowing users to create and participate in raffles/lotteries with complete transparency, security, and fairness.
- */
+/// @title Raffl
+/// @author JA <@ubinatus>
+/// @notice Raffl is a decentralized platform built on the Ethereum blockchain, allowing users to create and participate
+/// in raffles/lotteries with complete transparency, security, and fairness.
 contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
     /**
      *
      * STATE
      *
      */
+    /// @dev Address of the RafflFactory
     address public factory;
+    /// @dev User address that created the Raffl
     address public creator;
+    /// @dev Prizes contained in the Raffl
     Prize[] public prizes;
+    /// @dev Block timestamp for when the draw should be made and until entries are accepted
     uint256 public deadline;
+    /// @dev Minimum number of entries required to execute the draw
     uint256 public minEntries;
+    /// @dev Price of the entry to participate in the Raffl
     uint256 public entryPrice;
+    /// @dev Address of the ERC20 entry token (if applicable)
     address public entryToken;
+    /// @dev Array of token gates required for all participants to purchase entries.
     TokenGate[] public tokenGates;
+    /// @dev Extra recipient to share the pooled funds.
     ExtraRecipient public extraRecipient;
-
+    /// @dev Total number of entries acquired
     uint256 public entries;
+    /// @dev Total pooled funds from entries acquisition
     uint256 public pool;
+    /// @dev Maps an entry number to the owner address
     mapping(uint256 => address) public entriesMap; /* entry number */ /* user address */
+    /// @dev Maps a user address to the total amount of entries owned
     mapping(address => uint256) public userEntriesMap; /* user address */ /* number of entries */
-
+    /// @dev Whether the raffle is settled or not
     bool public settled;
+    /// @dev Whether the prizes were refunded when criteria did not meet.
     bool public prizesRefunded;
-
+    /// @dev Status of the Raffl game
     GameStatus public gameStatus;
 
-    /**
-     * @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
-     */
+    /// @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
     uint256 internal constant ONE = 1 ether;
 
-    /**
-     * @notice The manager that deployed this contract which controls the values for `fee` and `feeCollector`.
-     */
+    /// @notice The manager that deployed this contract which controls the values for `fee` and `feeCollector`.
     IFeeManager public manager;
-
-    /**
-     *
-     * EVENTS
-     *
-     */
-    event RaffleInitialized();
-    event EntriesBought(address indexed user, uint256 entriesBought, uint256 value);
-    event EntriesRefunded(address indexed user, uint256 entriesRefunded, uint256 value);
-    event PrizesRefunded();
-    event DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries);
-    event DeadlineSuccessCriteria(uint256 indexed requestId, uint256 entries, uint256 minEntries);
-    event DeadlineFailedCriteria(uint256 entries, uint256 minEntries);
-    event TokenGatingChanges();
+    
 
     /**
      *
@@ -83,7 +77,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
      *
      */
     modifier onlyFactory() {
-        if (msg.sender != factory) revert RafflErrors.OnlyFactoryAllowed();
+        if (msg.sender != factory) revert Errors.OnlyFactoryAllowed();
         _;
     }
 
@@ -98,7 +92,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
      *
      */
 
-    // @inheritdoc IRaffl
+    //// @inheritdoc IRaffl
     function initialize(
         address _entryToken,
         uint256 _entryPrice,
@@ -150,29 +144,29 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
      *
      */
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function criteriaMet() external view override returns (bool) {
         return entries >= minEntries;
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function deadlineExpired() external view override returns (bool) {
         return block.timestamp >= deadline;
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function upkeepPerformed() external view override returns (bool) {
         return settled;
     }
 
-    // @inheritdoc IFeeManager
+    /// @inheritdoc IFeeManager
     function feeData() public view returns (IFeeManager.FeeData memory) {
         return manager.feeData();
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function buyEntries(uint256 quantity) external payable override nonReentrant {
-        if (block.timestamp > deadline) revert RafflErrors.EntriesPurchaseClosed();
+        if (block.timestamp > deadline) revert Errors.EntriesPurchaseClosed();
         _ensureTokenGating(msg.sender);
         if (entryPrice > 0) {
             _purchaseEntry(quantity);
@@ -181,11 +175,11 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         }
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function refundEntries(address user) external override nonReentrant {
-        if (gameStatus != GameStatus.FailedDraw) revert RafflErrors.RefundsOnlyAllowedOnFailedDraw();
-        if (userEntriesMap[user] == 0) revert RafflErrors.UserWithoutEntries();
-        if (entryPrice == 0) revert RafflErrors.WithoutRefunds();
+        if (gameStatus != GameStatus.FailedDraw) revert Errors.RefundsOnlyAllowedOnFailedDraw();
+        if (userEntriesMap[user] == 0) revert Errors.UserWithoutEntries();
+        if (entryPrice == 0) revert Errors.WithoutRefunds();
         uint256 userEntries = userEntriesMap[user];
         userEntriesMap[user] = 0;
         uint256 value = entryPrice * userEntries;
@@ -197,15 +191,15 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         emit EntriesRefunded(user, userEntries, value);
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function refundPrizes() external payable override nonReentrant {
-        if (gameStatus != GameStatus.FailedDraw) revert RafflErrors.RefundsOnlyAllowedOnFailedDraw();
-        if (creator != msg.sender) revert RafflErrors.OnlyCreatorAllowed();
-        if (prizesRefunded) revert RafflErrors.PrizesAlreadyRefunded();
+        if (gameStatus != GameStatus.FailedDraw) revert Errors.RefundsOnlyAllowedOnFailedDraw();
+        if (creator != msg.sender) revert Errors.OnlyCreatorAllowed();
+        if (prizesRefunded) revert Errors.PrizesAlreadyRefunded();
 
         // Get feeData once to reduce SLOAD
         IFeeManager.FeeData memory _feeData = feeData();
-        if (msg.value != _feeData.feePenality) revert RafflErrors.RefundPenalityRequired();
+        if (msg.value != _feeData.feePenality) revert Errors.RefundPenalityRequired();
         if (_feeData.feePenality > 0) {
             payable(_feeData.feeCollector).transfer(_feeData.feePenality);
         }
@@ -221,10 +215,8 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
      *
      */
 
-    /**
-     * @dev Transfers the prizes to the specified user.
-     * @param user The address of the user who will receive the prizes.
-     */
+    /// @dev Transfers the prizes to the specified user.
+    /// @param user The address of the user who will receive the prizes.
     function _transferPrizes(address user) private {
         uint256 len = prizes.length;
         for (uint256 i = 0; i < len;) {
@@ -242,9 +234,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         }
     }
 
-    /**
-     * @dev Transfers the pool balance to the creator of the raffle, after deducting any fees.
-     */
+    /// @dev Transfers the pool balance to the creator of the raffle, after deducting any fees.
     function _transferPool() private {
         uint256 balance =
             (entryToken != address(0)) ? TokenLib.balanceOf(entryToken, address(this)) : address(this).balance;
@@ -292,12 +282,10 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         }
     }
 
-    /**
-     * @dev Internal function to handle the purchase of entries with entry price greater than 0.
-     * @param quantity The quantity of entries to purchase.
-     */
+    /// @dev Internal function to handle the purchase of entries with entry price greater than 0.
+    /// @param quantity The quantity of entries to purchase.
     function _purchaseEntry(uint256 quantity) private {
-        if (quantity == 0) revert RafflErrors.EntryQuantityRequired();
+        if (quantity == 0) revert Errors.EntryQuantityRequired();
         uint256 value = quantity * entryPrice;
         // Check if entryToken is a non-zero address, meaning ERC-20 is used for purchase
         if (entryToken != address(0)) {
@@ -306,7 +294,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
             TokenLib.safeTransferFrom(entryToken, msg.sender, address(this), value);
         } else {
             // Check that the correct amount of Ether is sent
-            if (msg.value != value) revert RafflErrors.EntriesPurchaseInvalidValue();
+            if (msg.value != value) revert Errors.EntriesPurchaseInvalidValue();
         }
 
         // Increments the pool value
@@ -330,12 +318,10 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         emit EntriesBought(msg.sender, quantity, value);
     }
 
-    /**
-     * @dev Internal function to handle the purchase of free entries with entry price equal to 0.
-     */
+    /// @dev Internal function to handle the purchase of free entries with entry price equal to 0.
     function _purchaseFreeEntry() private {
         // Allow up to one free entry per user
-        if (userEntriesMap[msg.sender] == 1) revert RafflErrors.MaxEntriesReached();
+        if (userEntriesMap[msg.sender] == 1) revert Errors.MaxEntriesReached();
         // Assigns the entry index to the user
         entriesMap[entries] = msg.sender;
 
@@ -349,10 +335,8 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         emit EntriesBought(msg.sender, 1, 0);
     }
 
-    /**
-     * @notice Ensures that the user has all the requirements from the `tokenGates` array
-     * @param user Address of the user
-     */
+    /// @notice Ensures that the user has all the requirements from the `tokenGates` array
+    /// @param user Address of the user
     function _ensureTokenGating(address user) private view {
         uint256 len = tokenGates.length;
         for (uint256 i = 0; i < len;) {
@@ -364,7 +348,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
 
             // Check if the balance meets the requirement
             if (balance < amount) {
-                revert RafflErrors.TokenGateRestriction();
+                revert Errors.TokenGateRestriction();
             }
 
             unchecked {
@@ -379,21 +363,21 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
      *
      */
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function setSuccessCriteria(uint256 requestId) external override onlyFactory {
         gameStatus = GameStatus.DrawStarted;
         emit DeadlineSuccessCriteria(requestId, entries, minEntries);
         settled = true;
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function setFailedCriteria() external override onlyFactory {
         gameStatus = GameStatus.FailedDraw;
         emit DeadlineFailedCriteria(entries, minEntries);
         settled = true;
     }
 
-    // @inheritdoc IRaffl
+    /// @inheritdoc IRaffl
     function disperseRewards(uint256 requestId, uint256 randomNumber) external override onlyFactory nonReentrant {
         uint256 winnerEntry = randomNumber % entries;
         address winnerUser = entriesMap[winnerEntry];

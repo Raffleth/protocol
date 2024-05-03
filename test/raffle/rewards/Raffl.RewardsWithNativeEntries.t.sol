@@ -7,7 +7,7 @@ import { Common } from "../../utils/Common.sol";
 
 contract RafflRewardsWithNativeEntriesTest is Common {
     Raffl raffl;
-    
+
     address winnerUser;
     uint256 totalPool;
     uint256 initialFeeCollectorBalance;

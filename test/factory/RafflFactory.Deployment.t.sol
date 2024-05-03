@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import { RafflFactory } from "../../src/RafflFactory.sol";
-import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+import { Errors } from "../../src/libraries/RafflFactoryErrors.sol";
 
 import { Common } from "../utils/Common.sol";
 
@@ -12,7 +12,7 @@ contract RafflFactoryDeploymentTest is Common {
 
     /// @dev should not allow an implementation that is not a contract
     function test_RevertIf_ImplementationZeroAddress() public {
-        vm.expectRevert(RafflFactoryErrors.AddressCanNotBeZero.selector);
+        vm.expectRevert(Errors.AddressCanNotBeZero.selector);
         new RafflFactory(
             address(0),
             feeCollector,
@@ -26,7 +26,7 @@ contract RafflFactoryDeploymentTest is Common {
 
     /// @dev should not allow a 0x0 address for the fee collector
     function test_RevertIf_FeeCollectorZeroAddress() public {
-        vm.expectRevert(RafflFactoryErrors.AddressCanNotBeZero.selector);
+        vm.expectRevert(Errors.AddressCanNotBeZero.selector);
         new RafflFactory(
             address(implementation),
             address(0),
@@ -40,7 +40,7 @@ contract RafflFactoryDeploymentTest is Common {
 
     /// @dev should not allow fee beyond bounds
     function test_RevertIf_FeeOutOfBounds() public {
-        vm.expectRevert(RafflFactoryErrors.FeeOutOfRange.selector);
+        vm.expectRevert(Errors.FeeOutOfRange.selector);
         new RafflFactory(
             address(implementation),
             feeCollector,

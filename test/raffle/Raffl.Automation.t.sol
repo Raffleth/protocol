@@ -5,7 +5,8 @@ import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries
 
 import { Raffl } from "../../src/Raffl.sol";
 import { RafflFactory } from "../../src/RafflFactory.sol";
-import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+import { IRaffl } from "../../src/interfaces/IRaffl.sol";
+import { Errors } from "../../src/libraries/RafflFactoryErrors.sol";
 
 import { Common } from "../utils/Common.sol";
 import { VRFCoordinatorV2PlusMock } from "../mocks/VRFCoordinatorV2PlusMock.sol";
@@ -44,7 +45,7 @@ contract RafflAutomationTest is Common {
     function test_RevertIf_PerformsUpkeepWithIncorrectRaffle() public {
         bytes memory performData = abi.encode(attacker, 500);
 
-        vm.expectRevert(RafflFactoryErrors.UpkeepConditionNotMet.selector);
+        vm.expectRevert(Errors.UpkeepConditionNotMet.selector);
         vm.prank(admin);
         rafflFactory.performUpkeep(performData);
     }
@@ -55,7 +56,7 @@ contract RafflAutomationTest is Common {
 
         bytes memory performData = abi.encode(activeRaffle, activeRafflIdx);
 
-        vm.expectRevert(RafflFactoryErrors.UpkeepConditionNotMet.selector);
+        vm.expectRevert(Errors.UpkeepConditionNotMet.selector);
         vm.prank(admin);
         rafflFactory.performUpkeep(performData);
     }
@@ -89,7 +90,7 @@ contract RafflAutomationTest is Common {
 
         // Check topic, data and sender,
         vm.expectEmit(true, false, false, true, address(raffl));
-        emit Raffl.DeadlineSuccessCriteria(nextRequestId, raffl.entries(), raffl.minEntries());
+        emit IRaffl.DeadlineSuccessCriteria(nextRequestId, raffl.entries(), raffl.minEntries());
 
         rafflFactory.performUpkeep(performData);
 

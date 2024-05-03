@@ -7,7 +7,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 
 import { Raffl } from "../../src/Raffl.sol";
 import { IRaffl } from "../../src/interfaces/IRaffl.sol";
-import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+import { Errors } from "../../src/libraries/RafflFactoryErrors.sol";
 
 import { Common } from "../utils/Common.sol";
 
@@ -51,7 +51,7 @@ contract RafflInitializeTest is Common {
     /// @dev should not allow to pass an expired deadline
     function test_RevertIf_ExpiredDeadline() public {
         vm.prank(raffleCreator);
-        vm.expectRevert(RafflFactoryErrors.DeadlineIsNotFuture.selector);
+        vm.expectRevert(Errors.DeadlineIsNotFuture.selector);
         rafflFactory.createRaffle(
             address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp - 1, prizes, tokenGates, extraRecipient
         );
@@ -60,7 +60,7 @@ contract RafflInitializeTest is Common {
     /// @dev should not allow empty prizes
     function test_RevertIf_EmptyPrizes() public {
         vm.prank(raffleCreator);
-        vm.expectRevert(RafflFactoryErrors.PrizesIsEmpty.selector);
+        vm.expectRevert(Errors.PrizesIsEmpty.selector);
         rafflFactory.createRaffle(
             address(0),
             ENTRY_PRICE,
@@ -78,7 +78,7 @@ contract RafflInitializeTest is Common {
         p[0] = (IRaffl.Prize(address(testERC20), IRaffl.AssetType.ERC20, 0));
 
         vm.prank(raffleCreator);
-        vm.expectRevert(RafflFactoryErrors.ERC20PrizeAmountIsZero.selector);
+        vm.expectRevert(Errors.ERC20PrizeAmountIsZero.selector);
         rafflFactory.createRaffle(
             address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW, p, tokenGates, extraRecipient
         );

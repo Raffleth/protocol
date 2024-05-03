@@ -2,7 +2,8 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 
@@ -21,20 +22,20 @@ contract RafflEntriesWithNativeTest is Common {
     function test_RevertIf_ZeroQuantityEntriesPurchase() public {
         vm.deal(userA, entryPrice * 5);
 
-        vm.expectRevert(RafflErrors.EntryQuantityRequired.selector);
+        vm.expectRevert(Errors.EntryQuantityRequired.selector);
         vm.prank(userA);
         raffl.buyEntries{ value: entryPrice * 5 }(0);
     }
 
     /// @dev should validate the value when buying entries
     function test_RevertIf_ZeroValueEntriesPurchase() public {
-        vm.expectRevert(RafflErrors.EntriesPurchaseInvalidValue.selector);
+        vm.expectRevert(Errors.EntriesPurchaseInvalidValue.selector);
         vm.prank(userA);
         raffl.buyEntries{ value: 0 }(5);
 
         vm.deal(userA, 123);
 
-        vm.expectRevert(RafflErrors.EntriesPurchaseInvalidValue.selector);
+        vm.expectRevert(Errors.EntriesPurchaseInvalidValue.selector);
         vm.prank(userA);
         raffl.buyEntries{ value: 123 }(5);
     }
@@ -47,7 +48,7 @@ contract RafflEntriesWithNativeTest is Common {
         vm.deal(userA, value);
 
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.EntriesBought(userA, quantity, value);
+        emit IRaffl.EntriesBought(userA, quantity, value);
 
         vm.prank(userA);
         raffl.buyEntries{ value: value }(quantity);

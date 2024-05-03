@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
+import { Errors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 
@@ -35,7 +35,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
         // Expect DeadlineFailedCriteria emit event
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.DeadlineFailedCriteria(raffl.entries(), raffl.minEntries());
+        emit IRaffl.DeadlineFailedCriteria(raffl.entries(), raffl.minEntries());
         rafflFactory.performUpkeep(performData);
 
         assertTrue(raffl.upkeepPerformed());
@@ -57,7 +57,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
         vm.startPrank(userA);
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit Raffl.EntriesRefunded(userA, quantity, amountPaid);
+        emit IRaffl.EntriesRefunded(userA, quantity, amountPaid);
         raffl.refundEntries(userA);
         vm.stopPrank();
 
@@ -73,7 +73,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
         raffl.refundEntries(userA);
 
         vm.prank(userA);
-        vm.expectRevert(RafflErrors.UserWithoutEntries.selector);
+        vm.expectRevert(Errors.UserWithoutEntries.selector);
         raffl.refundEntries(userA);
     }
 
@@ -82,7 +82,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
         processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(externalUser);
-        vm.expectRevert(RafflErrors.UserWithoutEntries.selector);
+        vm.expectRevert(Errors.UserWithoutEntries.selector);
         raffl.refundEntries(externalUser);
     }
 
@@ -99,7 +99,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
         vm.startPrank(raffleCreator);
         vm.expectEmit();
-        emit Raffl.PrizesRefunded();
+        emit IRaffl.PrizesRefunded();
         raffl.refundPrizes();
         vm.stopPrank();
 
@@ -116,7 +116,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
         raffl.refundPrizes();
 
         vm.prank(raffleCreator);
-        vm.expectRevert(RafflErrors.PrizesAlreadyRefunded.selector);
+        vm.expectRevert(Errors.PrizesAlreadyRefunded.selector);
         raffl.refundPrizes();
     }
 
@@ -125,7 +125,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
         processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(attacker);
-        vm.expectRevert(RafflErrors.OnlyCreatorAllowed.selector);
+        vm.expectRevert(Errors.OnlyCreatorAllowed.selector);
         raffl.refundPrizes();
     }
 }

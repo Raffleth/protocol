@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import { RafflFactory } from "../../src/RafflFactory.sol";
 import { IFeeManager } from "../../src/interfaces/IFeeManager.sol";
-import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+import { Errors } from "../../src/libraries/RafflFactoryErrors.sol";
 
 import { Common } from "../utils/Common.sol";
 
@@ -11,10 +11,9 @@ contract RafflFactoryFeeTest is Common {
     uint64 PROPOSED_FEE = 0.03 ether;
     uint64 PROPOSED_FEE_PENALITY = 0.03 ether;
 
-    /// @dev has a min a max fee bounds
-    function test_HasMinAndMaxFeeBounds() public view {
+    /// @dev has a max fee bound
+    function test_HasMaxFeeBound() public view {
         assertEq(rafflFactory.maxFee(), 0.05 ether);
-        assertEq(rafflFactory.minFee(), 0 ether);
     }
 
     /// @dev only owner can change the fee collector
@@ -26,7 +25,7 @@ contract RafflFactoryFeeTest is Common {
 
     /// @dev only owner can change the fee collector
     function test_OwnerCanSetFeeCollector() public {
-        vm.expectRevert(RafflFactoryErrors.AddressCanNotBeZero.selector);
+        vm.expectRevert(Errors.AddressCanNotBeZero.selector);
         vm.prank(admin);
         rafflFactory.setFeeCollector(address(0));
 
@@ -39,14 +38,14 @@ contract RafflFactoryFeeTest is Common {
 
     /// @dev only fee collector can change the fee
     function test_RevertIf_NotFeeCollectorSetsFee() public {
-        vm.expectRevert(RafflFactoryErrors.NotFeeCollector.selector);
+        vm.expectRevert(Errors.NotFeeCollector.selector);
         vm.prank(attacker);
         rafflFactory.proposeFeeChange(PROPOSED_FEE, PROPOSED_FEE_PENALITY);
     }
 
     /// @dev allows fee collector to propose fee change within bounds
     function test_AllowProposeFeeChangeWithinBounds() public {
-        vm.expectRevert(RafflFactoryErrors.FeeOutOfRange.selector);
+        vm.expectRevert(Errors.FeeOutOfRange.selector);
         vm.prank(feeCollector);
         rafflFactory.proposeFeeChange(0.07 ether, PROPOSED_FEE_PENALITY);
 
@@ -54,7 +53,7 @@ contract RafflFactoryFeeTest is Common {
 
         IFeeManager.FeeData memory currentFee = rafflFactory.feeData();
 
-        vm.expectRevert(RafflFactoryErrors.FeeAlreadySet.selector);
+        vm.expectRevert(Errors.FeeAlreadySet.selector);
         vm.prank(feeCollector);
         rafflFactory.proposeFeeChange(currentFee.feePercentage, currentFee.feePenality);
 
@@ -76,7 +75,7 @@ contract RafflFactoryFeeTest is Common {
         vm.prank(feeCollector);
         rafflFactory.proposeFeeChange(PROPOSED_FEE, PROPOSED_FEE_PENALITY);
 
-        vm.expectRevert(RafflFactoryErrors.ProposalNotReady.selector);
+        vm.expectRevert(Errors.ProposalNotReady.selector);
         vm.prank(externalUser);
         rafflFactory.executeFeeChange();
 
@@ -91,7 +90,7 @@ contract RafflFactoryFeeTest is Common {
         assertEq(rafflFactory.feePercentage(), PROPOSED_FEE);
         assertEq(rafflFactory.feePenality(), PROPOSED_FEE_PENALITY);
 
-        vm.expectRevert(RafflFactoryErrors.FeeAlreadySet.selector);
+        vm.expectRevert(Errors.FeeAlreadySet.selector);
         vm.prank(externalUser);
         rafflFactory.executeFeeChange();
     }

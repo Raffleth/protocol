@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: None
-// Raffl Contracts (last updated v1.0.0) (RafflFactory.sol)
+// Raffl Protocol (last updated v1.0.0) (RafflFactory.sol)
 pragma solidity ^0.8.25;
-
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import { VRFConsumerBaseV2Plus } from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
-import { IVRFCoordinatorV2Plus } from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
 import { AutomationCompatibleInterface } from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
-import { RafflFactoryErrors } from "./libraries/Errors.sol";
+import { Errors } from "./libraries/RafflFactoryErrors.sol";
 
 import { IRaffl } from "./interfaces/IRaffl.sol";
 import { IFeeManager } from "./interfaces/IFeeManager.sol";
@@ -25,137 +22,87 @@ import { IFeeManager } from "./interfaces/IFeeManager.sol";
                                                                        
  */
 
-/**
- * @title RafflFactory
- * @dev The RafflFactory contract can be used to create raffle contracts
- */
+/// @title RafflFactory
+/// @dev The RafflFactory contract can be used to create raffle contracts
 contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, IFeeManager {
-    /**
-     * @dev Max gas to bump to
-     */
+    /// @dev Max gas to bump to
     bytes32 keyHash;
 
-    /**
-     * @dev Callback gas limit for the Chainlink VRF
-     */
+    /// @dev Callback gas limit for the Chainlink VRF
     uint32 callbackGasLimit = 500_000;
 
-    /**
-     * @dev Number of requests confirmations for the Chainlink VRF
-     */
+    /// @dev Number of requests confirmations for the Chainlink VRF
     uint16 requestConfirmations = 3;
 
-    /**
-     * @dev Chainlink subscription ID
-     */
+    /// @dev Chainlink subscription ID
     uint256 public subscriptionId;
 
-    /**
-     * @dev `feePercentage` is the new fee percentage that will be valid to be executed after `validFrom`.
-     * @dev `feePenality` is the new fee penality that will be valid to be executed after `validFrom`.
-     * @dev `validFrom` is the timestamp that marks the point in time where proposal can be executed.
-     */
+    /// @dev `feePercentage` is the new fee percentage that will be valid to be executed after `validFrom`.
+    /// @dev `feePenality` is the new fee penality that will be valid to be executed after `validFrom`.
+    /// @dev `validFrom` is the timestamp that marks the point in time where proposal can be executed.
     struct ProposedFee {
         uint64 feePercentage;
         uint256 feePenality;
         uint64 validFrom;
     }
 
-    /**
-     * @dev `enabled` is the boolean which indicates if the individual `Raffl` fee should be applied
-     * @dev `feePercentage` is the percentage of every transaction that will be collected.
-     */
+    /// @dev `enabled` is the boolean which indicates if the individual `Raffl` fee should be applied
+    /// @dev `feePercentage` is the percentage of every transaction that will be collected.
     struct RafflFeeData {
         bool enabled;
         uint64 feePercentage;
     }
 
-    /**
-     * @param raffle Address of the created raffle
-     */
+    /// @param raffle Address of the created raffle
     event RaffleCreated(address raffle);
 
-    /**
-     * @param feeCollector Address of the new fee collector.
-     */
+    /// @param feeCollector Address of the new fee collector.
     event FeeCollectorChanged(address indexed feeCollector);
 
-    /**
-     * @param feePercentage Value for the new fee.
-     * @param feePenality Value for the new penality.
-     */
+    /// @param feePercentage Value for the new fee.
+    /// @param feePenality Value for the new penality.
     event FeeProposal(uint64 feePercentage, uint256 feePenality);
 
-    /**
-     * @param feePercentage Value for the new fee.
-     * @param feePenality Value for the new penality.
-     */
+    /// @param feePercentage Value for the new fee.
+    /// @param feePenality Value for the new penality.
     event FeeChanged(uint64 feePercentage, uint256 feePenality);
 
-    /**
-     * @param raffle Address of raffle with custom fee
-     */
+    /// @param raffle Address of raffle with custom fee
     event RafflFeeChanged(address raffle);
 
-    /**
-     * @dev Percentages and fees are calculated using 18 decimals where 0 ether is 0%.
-     */
-    uint64 private constant MIN_FEE = 0;
-
-    /**
-     * @dev Percentages and fees are calculated using 18 decimals where 0.05 ether is 5%.
-     */
+    /// @dev Percentages and fees are calculated using 18 decimals where 0.05 ether is 5%.
     uint64 private constant MAX_FEE = 0.05 ether;
 
-    /**
-     * @notice The address that will be used as a delegate call target for `Raffl`s.
-     */
+    /// @notice The address that will be used as a delegate call target for `Raffl`s.
     address public immutable implementation;
 
-    /**
-     * @dev It will be used as the salt for create2
-     */
+    /// @dev It will be used as the salt for create2
     bytes32 internal _salt;
 
-    /**
-     * @dev Stores the address that will collect the fees of every success draw of `Raffl`s
-     * and the percentage that will be charged.
-     */
+    /// @dev Stores the address that will collect the fees of every success draw of `Raffl`s and the percentage that
+    /// will be charged.
     FeeData internal _feeData;
 
-    /**
-     * @dev Stores the info necessary for a proposal change of the fee structure.
-     */
+    /// @dev Stores the info necessary for a proposal change of the fee structure.
     ProposedFee internal _proposedFee;
 
-    /**
-     * @dev Maps the `Raffl` addresses that have custom fees.
-     */
+    /// @dev Maps the `Raffl` addresses that have custom fees.
     mapping(address => RafflFeeData) public customFees;
 
-    /**
-     * @dev Maps the created `Raffl`s addresses
-     */
+    /// @dev Maps the created `Raffl`s addresses
     mapping(address => bool) internal _raffles;
 
-    /**
-     * @dev Maps the VRF `requestId` to the `Raffl`s address
-     */
+    /// @dev Maps the VRF `requestId` to the `Raffl`s address
     mapping(uint256 => address) internal _requestIds;
 
-    /**
-     * @dev `raffle` the address of the raffle
-     * @dev `deadline` is the timestamp that marks the start time to perform the upkeep
-     * effect.
-     */
+    /// @dev `raffle` the address of the raffle
+    /// @dev `deadline` is the timestamp that marks the start time to perform the upkeep effect.
     struct ActiveRaffle {
         address raffle;
         uint256 deadline;
     }
 
-    /**
-     * @dev Stores the active raffles, which upkeep is pending to be performed
-     */
+    /// @dev Stores the active raffles, which upkeep is pending to be performed
     ActiveRaffle[] internal _activeRaffles;
 
     /**
@@ -165,7 +112,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      *
      * - `implementationAddress` has to be a contract.
      * - `feeCollectorAddress` can't be address 0x0.
-     * - `feePercentageValue` must be within minFee and maxFee.
+     * - `feePercentageValue` must be within 0 and maxFee range.
      * - `vrfCoordinator` can't be address 0x0.
      *
      * @param implementationAddress Address of `Raffl` contract implementation.
@@ -186,8 +133,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
     )
         VRFConsumerBaseV2Plus(vrfCoordinator)
     {
-        if (implementationAddress == address(0)) revert RafflFactoryErrors.AddressCanNotBeZero();
-        if (vrfCoordinator == address(0)) revert RafflFactoryErrors.AddressCanNotBeZero();
+        if (implementationAddress == address(0)) revert Errors.AddressCanNotBeZero();
+        if (vrfCoordinator == address(0)) revert Errors.AddressCanNotBeZero();
 
         bytes32 seed;
         assembly ("memory-safe") {
@@ -203,9 +150,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         subscriptionId = _subscriptionId;
     }
 
-    /**
-     * @notice Increments the salt one step.
-     */
+    /// @notice Increments the salt one step.
     function nextSalt() public {
         _salt = keccak256(abi.encode(_salt));
     }
@@ -241,8 +186,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         public
         returns (address raffle)
     {
-        if (prizes.length == 0) revert RafflFactoryErrors.PrizesIsEmpty();
-        if (block.timestamp >= deadline) revert RafflFactoryErrors.DeadlineIsNotFuture();
+        if (prizes.length == 0) revert Errors.PrizesIsEmpty();
+        if (block.timestamp >= deadline) revert Errors.DeadlineIsNotFuture();
 
         address impl = implementation;
         bytes32 salt = _salt;
@@ -257,7 +202,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
             raffle := create2(0, 0x09, 0x37, salt)
         }
 
-        if (raffle == address(0)) revert RafflFactoryErrors.FailedToDeploy();
+        if (raffle == address(0)) revert Errors.FailedToDeploy();
         nextSalt();
 
         IRaffl(raffle).initialize(
@@ -266,12 +211,12 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
 
         for (uint256 i = 0; i < prizes.length; ++i) {
             if (prizes[i].assetType == IRaffl.AssetType.ERC20 && prizes[i].value == 0) {
-                revert RafflFactoryErrors.ERC20PrizeAmountIsZero();
+                revert Errors.ERC20PrizeAmountIsZero();
             }
             (bool success,) = prizes[i].asset.call(
                 abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, raffle, prizes[i].value)
             );
-            if (!success) revert RafflFactoryErrors.UnsuccessfulTransferFromPrize();
+            if (!success) revert Errors.UnsuccessfulTransferFromPrize();
         }
 
         _raffles[raffle] = true;
@@ -290,7 +235,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      * @param newFeeCollector Address of `feeCollector`.
      */
     function setFeeCollector(address newFeeCollector) public onlyOwner {
-        if (newFeeCollector == address(0)) revert RafflFactoryErrors.AddressCanNotBeZero();
+        if (newFeeCollector == address(0)) revert Errors.AddressCanNotBeZero();
 
         _feeData.feeCollector = newFeeCollector;
         emit FeeCollectorChanged(newFeeCollector);
@@ -306,7 +251,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      * Requirements:
      *
      * - `msg.sender` has to be `feeCollector`.
-     * - `newFeePercentage` must be within minFee and maxFee range.
+     * - `newFeePercentage` must be within 0 and maxFee range.
      *
      * @param newFeePercentage Value for `feePercentage` that will be charged on total pooled entried on successful
      * draws.
@@ -314,9 +259,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      */
     function proposeFeeChange(uint64 newFeePercentage, uint256 newFeePenality) public {
         if (msg.sender != _feeData.feeCollector && _feeData.feeCollector != address(0)) {
-            revert RafflFactoryErrors.NotFeeCollector();
+            revert Errors.NotFeeCollector();
         }
-        if (newFeePercentage > MAX_FEE) revert RafflFactoryErrors.FeeOutOfRange();
+        if (newFeePercentage > MAX_FEE) revert Errors.FeeOutOfRange();
 
         if (_feeData.feeCollector == address(0)) {
             _feeData.feePercentage = newFeePercentage;
@@ -324,7 +269,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
             emit FeeChanged(newFeePercentage, newFeePenality);
         } else {
             if (_feeData.feePercentage == newFeePercentage && _feeData.feePenality == newFeePenality) {
-                revert RafflFactoryErrors.FeeAlreadySet();
+                revert Errors.FeeAlreadySet();
             }
             _proposedFee = ProposedFee(newFeePercentage, newFeePenality, uint64(block.timestamp + 1 hours));
             emit FeeProposal(newFeePercentage, newFeePenality);
@@ -341,9 +286,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      *
      */
     function executeFeeChange() public {
-        if (_proposedFee.validFrom > block.timestamp) revert RafflFactoryErrors.ProposalNotReady();
+        if (_proposedFee.validFrom > block.timestamp) revert Errors.ProposalNotReady();
         if (_feeData.feePercentage == _proposedFee.feePercentage && _feeData.feePenality == _proposedFee.feePenality) {
-            revert RafflFactoryErrors.FeeAlreadySet();
+            revert Errors.FeeAlreadySet();
         }
 
         _feeData.feePercentage = _proposedFee.feePercentage;
@@ -358,58 +303,41 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      * Requirements:
      *
      * - `msg.sender` has to be `feeCollector`.
-     * - `fee` must be within minFee and maxFee range.
+     * - `fee` must be within 0 and maxFee range.
      *
      */
     function setRafflFee(address[] calldata raffles, bool enabled, uint64 fee) public {
-        if (msg.sender != _feeData.feeCollector) revert RafflFactoryErrors.NotFeeCollector();
-        if (fee > MAX_FEE) revert RafflFactoryErrors.FeeOutOfRange();
+        if (msg.sender != _feeData.feeCollector) revert Errors.NotFeeCollector();
+        if (fee > MAX_FEE) revert Errors.FeeOutOfRange();
 
         for (uint256 i = 0; i < raffles.length; ++i) {
-            if (!_raffles[raffles[i]]) revert RafflFactoryErrors.NotARaffle();
+            if (!_raffles[raffles[i]]) revert Errors.NotARaffle();
             customFees[raffles[i]] = RafflFeeData(enabled, fee);
             emit RafflFeeChanged(raffles[i]);
         }
     }
 
-    /**
-     * @dev Exposes MIN_FEE in a lowerCamelCase.
-     */
-    function minFee() external pure returns (uint64) {
-        return MIN_FEE;
-    }
-
-    /**
-     * @dev Exposes MAX_FEE in a lowerCamelCase.
-     */
+    /// @dev Exposes MAX_FEE in a lowerCamelCase.
     function maxFee() external pure returns (uint64) {
         return MAX_FEE;
     }
 
-    /**
-     * @notice Exposes the `FeeData.feeCollector` to users.
-     */
+    /// @notice Exposes the `FeeData.feeCollector` to users.
     function feeCollector() external view returns (address) {
         return _feeData.feeCollector;
     }
 
-    /**
-     * @notice Exposes the `FeeData.feePercentage` to users.
-     */
+    /// @notice Exposes the `FeeData.feePercentage` to users.
     function feePercentage() external view returns (uint64) {
         return feeData().feePercentage;
     }
 
-    /**
-     * @notice Exposes the `FeeData.feePenality` to users.
-     */
+    /// @notice Exposes the `FeeData.feePenality` to users.
     function feePenality() external view returns (uint256) {
         return feeData().feePenality;
     }
 
-    /**
-     * @notice Exposes the `FeeData`.
-     */
+    /// @notice Exposes the `FeeData`.
     function feeData() public view override returns (FeeData memory) {
         if (customFees[msg.sender].enabled) {
             return FeeData(_feeData.feeCollector, customFees[msg.sender].feePercentage, _feeData.feePenality);
@@ -417,27 +345,21 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         return _feeData;
     }
 
-    /**
-     * @notice Exposes the `ProposedFee`.
-     */
+    /// @notice Exposes the `ProposedFee`.
     function proposedFee() public view returns (ProposedFee memory) {
         return _proposedFee;
     }
 
-    /**
-     * @notice Exposes the `ActiveRaffle`s
-     */
+    /// @notice Exposes the `ActiveRaffle`s
     function activeRaffles() public view returns (ActiveRaffle[] memory) {
         return _activeRaffles;
     }
 
-    /**
-     * @notice Sets the Chainlink VRF subscription settings
-     * @param _subscriptionId The subscription ID that this contract uses for funding VRF requests
-     * @param _keyHash The gas lane to use, which specifies the maximum gas price to bump to
-     * @param _callbackGasLimit Callback gas limit for the Chainlink VRF
-     * @param _requestConfirmations Number of requests confirmations for the Chainlink VRF
-     */
+    /// @notice Sets the Chainlink VRF subscription settings
+    /// @param _subscriptionId The subscription ID that this contract uses for funding VRF requests
+    /// @param _keyHash The gas lane to use, which specifies the maximum gas price to bump to
+    /// @param _callbackGasLimit Callback gas limit for the Chainlink VRF
+    /// @param _requestConfirmations Number of requests confirmations for the Chainlink VRF
     function handleSubscription(
         uint64 _subscriptionId,
         bytes32 _keyHash,
@@ -468,9 +390,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         override
         returns (bool upkeepNeeded, bytes memory performData)
     {
-        if (_activeRaffles.length == 0) revert RafflFactoryErrors.NoActiveRaffles();
+        if (_activeRaffles.length == 0) revert Errors.NoActiveRaffles();
         (uint256 lowerBound, uint256 upperBound) = abi.decode(checkData, (uint256, uint256));
-        if (lowerBound >= upperBound) revert RafflFactoryErrors.InvalidLowerAndUpperBounds();
+        if (lowerBound >= upperBound) revert Errors.InvalidLowerAndUpperBounds();
         // Compute the active raffle that needs to be settled
         uint256 index;
         address raffle;
@@ -488,17 +410,15 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         performData = abi.encode(raffle, index);
     }
 
-    /**
-     * @notice Permisionless write method usually called by the Chainlink Automation Nodes.
-     * @dev Either starts the draw for a raffle or cancels the raffle if criteria is not met.
-     * @param performData Encoded binary data which contains the raffle address and index of the `_activeRaffles`
-     */
+    /// @notice Permisionless write method usually called by the Chainlink Automation Nodes.
+    /// @dev Either starts the draw for a raffle or cancels the raffle if criteria is not met.
+    /// @param performData Encoded binary data which contains the raffle address and index of the `_activeRaffles`
     function performUpkeep(bytes calldata performData) external override {
         (address raffle, uint256 index) = abi.decode(performData, (address, uint256));
-        if (_activeRaffles.length <= index) revert RafflFactoryErrors.UpkeepConditionNotMet();
-        if (_activeRaffles[index].raffle != raffle) revert RafflFactoryErrors.UpkeepConditionNotMet();
-        if (_activeRaffles[index].deadline > block.timestamp) revert RafflFactoryErrors.UpkeepConditionNotMet();
-        if (IRaffl(raffle).upkeepPerformed()) revert RafflFactoryErrors.UpkeepConditionNotMet();
+        if (_activeRaffles.length <= index) revert Errors.UpkeepConditionNotMet();
+        if (_activeRaffles[index].raffle != raffle) revert Errors.UpkeepConditionNotMet();
+        if (_activeRaffles[index].deadline > block.timestamp) revert Errors.UpkeepConditionNotMet();
+        if (IRaffl(raffle).upkeepPerformed()) revert Errors.UpkeepConditionNotMet();
         bool criteriaMet = IRaffl(raffle).criteriaMet();
         if (criteriaMet) {
             uint256 requestId = s_vrfCoordinator.requestRandomWords(
@@ -519,22 +439,18 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         _burnActiveRaffle(index);
     }
 
-    /**
-     * @notice Method called by the Chainlink VRF Coordinator
-     * @param requestId Id of the VRF request
-     * @param randomWords Provably fair and verifiable array of random words
-     */
+    /// @notice Method called by the Chainlink VRF Coordinator
+    /// @param requestId Id of the VRF request
+    /// @param randomWords Provably fair and verifiable array of random words
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         IRaffl(_requestIds[requestId]).disperseRewards(requestId, randomWords[0]);
     }
 
-    /**
-     * @notice Helper function to remove a raffle from the `_activeRaffles` array
-     * @dev Move the last element to the deleted stop and removes the last element
-     * @param i Element index to remove
-     */
+    /// @notice Helper function to remove a raffle from the `_activeRaffles` array
+    /// @dev Move the last element to the deleted stop and removes the last element
+    /// @param i Element index to remove
     function _burnActiveRaffle(uint256 i) internal {
-        if (i >= _activeRaffles.length) revert RafflFactoryErrors.ActiveRaffleIndexOutOfBounds();
+        if (i >= _activeRaffles.length) revert Errors.ActiveRaffleIndexOutOfBounds();
         _activeRaffles[i] = _activeRaffles[_activeRaffles.length - 1];
         _activeRaffles.pop();
     }
