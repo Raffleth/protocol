@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
 // Raffl Contracts (last updated v1.0.0) (Errors.sol)
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 /// @title RafflFactory Errors Library
 library RafflFactoryErrors {

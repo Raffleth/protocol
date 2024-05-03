@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-// Raffl Contracts (last updated v1.0.0) (Raffl.sol)
+// Raffl Contracts (last updated v1.0.0) (TokenLib.sol)
 pragma solidity ^0.8.25;
 
 import { IERC20Minimal } from "../interfaces/IERC20Minimal.sol";

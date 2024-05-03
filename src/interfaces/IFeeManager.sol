@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-// Raffl Contracts (last updated v1.0.0) (Raffl.sol)
+// Raffl Contracts (last updated v1.0.0) (IFeeManager.sol)
 pragma solidity ^0.8.25;
 
 /**

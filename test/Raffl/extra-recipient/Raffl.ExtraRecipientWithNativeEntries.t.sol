@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
 
 import { Common } from "../../utils/Common.sol";
 
