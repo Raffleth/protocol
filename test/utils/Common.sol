@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.25;
 
 import { Test, Vm } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
@@ -175,11 +175,14 @@ abstract contract Common is Test {
         rafflFactory.performUpkeep(performData);
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
-        assertEq(entries.length, 2);
         if (criteriaMet) {
+            assertEq(entries.length, 2);
             assertEq(entries[1].topics[0], keccak256("DeadlineSuccessCriteria(uint256,uint256,uint256)"));
             // DeadlineSuccessCriteria(uint256 indexed requestId, uint256 entries, uint256 minEntries);
             requestId = uint256(entries[1].topics[1]);
+        } else {
+            assertEq(entries.length, 1);
+            assertEq(entries[0].topics[0], keccak256("DeadlineFailedCriteria(uint256,uint256)"));
         }
     }
 
