@@ -6,7 +6,6 @@ import { Common } from "../../utils/Common.sol";
 
 contract RafflRewardsWithFreeEntriesTest is Common {
     Raffl raffl;
-    uint256 entryPrice;
 
     address winnerUser;
     uint256 totalPool;
@@ -25,7 +24,6 @@ contract RafflRewardsWithFreeEntriesTest is Common {
                 address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
             )
         );
-        entryPrice = raffl.entryPrice();
 
         // Purchase entries
         makeUserBuyEntries(raffl, userA, 1);

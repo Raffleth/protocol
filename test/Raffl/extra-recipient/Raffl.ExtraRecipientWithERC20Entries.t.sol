@@ -7,7 +7,6 @@ import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
 
 contract RafflExtraRecipientWithERC20EntriesTest is Common {
     Raffl raffl;
-    uint256 entryPrice;
 
     ERC20Mock entryAsset;
 

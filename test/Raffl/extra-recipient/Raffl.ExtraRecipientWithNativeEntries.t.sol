@@ -7,7 +7,6 @@ import { Common } from "../../utils/Common.sol";
 
 contract RafflExtraRecipientWithNativeEntriesTest is Common {
     Raffl raffl;
-    uint256 entryPrice;
 
     uint256 totalPool;
     uint256 initialFeeCollectorBalance;
@@ -23,7 +22,6 @@ contract RafflExtraRecipientWithNativeEntriesTest is Common {
 
         // Create the raffle
         raffl = createNewRaffle(raffleCreator);
-        entryPrice = raffl.entryPrice();
 
         // Purchase entries
         makeUserBuyEntries(raffl, userA, 5);
