@@ -69,7 +69,6 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
 
     /// @notice The manager that deployed this contract which controls the values for `fee` and `feeCollector`.
     IFeeManager public manager;
-    
 
     /**
      *
