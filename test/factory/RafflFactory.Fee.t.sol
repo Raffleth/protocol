@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.25;
 
-import { Common } from "../utils/Common.sol";
 import { RafflFactory } from "../../src/RafflFactory.sol";
 import { IFeeManager } from "../../src/interfaces/IFeeManager.sol";
 import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+
+import { Common } from "../utils/Common.sol";
 
 contract RafflFactoryFeeTest is Common {
     uint64 PROPOSED_FEE = 0.03 ether;

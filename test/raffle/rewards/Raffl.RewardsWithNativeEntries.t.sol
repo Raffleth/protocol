@@ -2,14 +2,12 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
+
 import { Common } from "../../utils/Common.sol";
-import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
 
-contract RafflRewardsWithERC20EntriesTest is Common {
+contract RafflRewardsWithNativeEntriesTest is Common {
     Raffl raffl;
-
-    ERC20Mock entryAsset;
-
+    
     address winnerUser;
     uint256 totalPool;
     uint256 initialFeeCollectorBalance;
@@ -19,34 +17,21 @@ contract RafflRewardsWithERC20EntriesTest is Common {
         fundAndSetPrizes(raffleCreator);
 
         // Create the raffle
-        entryAsset = new ERC20Mock();
-
-        vm.prank(raffleCreator);
-        raffl = Raffl(
-            rafflFactory.createRaffle(
-                address(entryAsset),
-                ENTRY_PRICE,
-                MIN_ENTRIES,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                extraRecipient
-            )
-        );
+        raffl = createNewRaffle(raffleCreator);
 
         // Purchase entries
-        makeUserBuyEntries(raffl, entryAsset, userA, 5);
-        makeUserBuyEntries(raffl, entryAsset, userB, 6);
-        makeUserBuyEntries(raffl, entryAsset, userC, 7);
-        makeUserBuyEntries(raffl, entryAsset, userD, 8);
+        makeUserBuyEntries(raffl, userA, 5);
+        makeUserBuyEntries(raffl, userB, 6);
+        makeUserBuyEntries(raffl, userC, 7);
+        makeUserBuyEntries(raffl, userD, 8);
 
         // Forward time to deadline
         vm.warp(raffl.deadline());
 
         // Set balances
-        totalPool = entryAsset.balanceOf(address(raffl));
-        initialFeeCollectorBalance = entryAsset.balanceOf(feeCollector);
-        initialRaffleCreatorBalance = entryAsset.balanceOf(raffleCreator);
+        totalPool = address(raffl).balance;
+        initialFeeCollectorBalance = feeCollector.balance;
+        initialRaffleCreatorBalance = raffleCreator.balance;
 
         // Perform upkeep
         if (!raffl.criteriaMet()) revert("Criteria not met.");
@@ -69,7 +54,7 @@ contract RafflRewardsWithERC20EntriesTest is Common {
         uint64 feePercentage = raffl.feeData().feePercentage;
         uint256 fee = totalPool * feePercentage / 1 ether;
 
-        assertEq(entryAsset.balanceOf(raffleCreator) - initialRaffleCreatorBalance, totalPool - fee);
+        assertEq(raffleCreator.balance - initialRaffleCreatorBalance, totalPool - fee);
     }
 
     /// @dev should transfer fee to collector
@@ -77,12 +62,12 @@ contract RafflRewardsWithERC20EntriesTest is Common {
         uint64 feePercentage = raffl.feeData().feePercentage;
         uint256 fee = totalPool * feePercentage / 1 ether;
 
-        assertEq(entryAsset.balanceOf(feeCollector) - initialFeeCollectorBalance, fee);
+        assertEq(feeCollector.balance - initialFeeCollectorBalance, fee);
     }
 
     /// @dev should not let the raffle have pool balance left
     function test_IsEmptyPoolAfterDraw() public view {
-        assertEq(entryAsset.balanceOf(address(raffl)), 0);
+        assertEq(address(raffl).balance, 0);
     }
 
     /// @dev should not let the raffle have prizes left

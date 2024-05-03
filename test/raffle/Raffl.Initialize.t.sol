@@ -6,9 +6,10 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import { Raffl } from "../../src/Raffl.sol";
-import { Common } from "../utils/Common.sol";
 import { IRaffl } from "../../src/interfaces/IRaffl.sol";
 import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+
+import { Common } from "../utils/Common.sol";
 
 contract RafflInitializeTest is Common {
     function setUp() public virtual {

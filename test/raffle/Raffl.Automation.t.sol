@@ -4,9 +4,10 @@ pragma solidity ^0.8.25;
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 import { Raffl } from "../../src/Raffl.sol";
-import { Common } from "../utils/Common.sol";
 import { RafflFactory } from "../../src/RafflFactory.sol";
 import { RafflFactoryErrors } from "../../src/libraries/Errors.sol";
+
+import { Common } from "../utils/Common.sol";
 import { VRFCoordinatorV2PlusMock } from "../mocks/VRFCoordinatorV2PlusMock.sol";
 
 contract RafflAutomationTest is Common {

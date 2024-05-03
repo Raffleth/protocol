@@ -7,12 +7,13 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { Common } from "../../utils/Common.sol";
-import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
 import { RafflFactory } from "../../../src/RafflFactory.sol";
 import { RafflErrors } from "../../../src/libraries/Errors.sol";
 import { IFeeManager } from "../../../src/interfaces/IFeeManager.sol";
+
+import { Common } from "../../utils/Common.sol";
+import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
 import { VRFCoordinatorV2PlusMock } from "../../mocks/VRFCoordinatorV2PlusMock.sol";
 
 contract RafflFreeEntriesTest is Common {

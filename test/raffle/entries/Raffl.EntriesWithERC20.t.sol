@@ -2,9 +2,10 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
+import { RafflErrors } from "../../../src/libraries/Errors.sol";
+
 import { Common } from "../../utils/Common.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
-import { RafflErrors } from "../../../src/libraries/Errors.sol";
 
 contract RafflEntriesWithERC20Test is Common {
     Raffl raffl;

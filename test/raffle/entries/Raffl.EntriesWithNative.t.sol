@@ -2,8 +2,9 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { Common } from "../../utils/Common.sol";
 import { RafflErrors } from "../../../src/libraries/Errors.sol";
+
+import { Common } from "../../utils/Common.sol";
 
 contract RafflEntriesWithNativeTest is Common {
     Raffl raffl;

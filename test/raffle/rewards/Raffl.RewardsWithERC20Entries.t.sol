@@ -2,25 +2,22 @@
 pragma solidity ^0.8.25;
 
 import { Raffl } from "../../../src/Raffl.sol";
+
 import { Common } from "../../utils/Common.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
 
-contract RafflExtraRecipientWithERC20EntriesTest is Common {
+contract RafflRewardsWithERC20EntriesTest is Common {
     Raffl raffl;
 
     ERC20Mock entryAsset;
 
+    address winnerUser;
     uint256 totalPool;
     uint256 initialFeeCollectorBalance;
     uint256 initialRaffleCreatorBalance;
-    uint256 initialExtraRecipientBalance;
 
     function setUp() public virtual {
         fundAndSetPrizes(raffleCreator);
-
-        // Set the Extra recipient
-        extraRecipient.recipient = userExtraRecipient;
-        extraRecipient.sharePercentage = 0.4 ether;
 
         // Create the raffle
         entryAsset = new ERC20Mock();
@@ -51,7 +48,6 @@ contract RafflExtraRecipientWithERC20EntriesTest is Common {
         totalPool = entryAsset.balanceOf(address(raffl));
         initialFeeCollectorBalance = entryAsset.balanceOf(feeCollector);
         initialRaffleCreatorBalance = entryAsset.balanceOf(raffleCreator);
-        initialExtraRecipientBalance = entryAsset.balanceOf(userExtraRecipient);
 
         // Perform upkeep
         if (!raffl.criteriaMet()) revert("Criteria not met.");
@@ -59,15 +55,22 @@ contract RafflExtraRecipientWithERC20EntriesTest is Common {
         uint256 requestId = performUpkeepOnActiveRaffl(raffl);
 
         // FulfillVRF and getWinner
-        fullfillVRFOnActiveAndEligibleRaffle(requestId, address(rafflFactory));
+        winnerUser = fullfillVRFOnActiveAndEligibleRaffle(requestId, address(rafflFactory));
     }
 
-    /// @dev should expose the extra recipient on state
-    function test_SetExtraRecipientState() public view {
-        (address extraRecipientAddress, uint256 sharePercentage) = raffl.extraRecipient();
+    /// @dev should transfer prize to winner
+    function test_DispersesRewardsToWinner() public view {
+        assertEq(testERC20.balanceOf(winnerUser), ERC20_AMOUNT);
+        assertEq(testERC721.balanceOf(winnerUser), 1);
+        assertEq(testERC721.ownerOf(ERC721_TOKEN_ID), winnerUser);
+    }
 
-        assertEq(extraRecipientAddress, userExtraRecipient);
-        assertEq(sharePercentage, 0.4 ether);
+    /// @dev should transfer pool to creator after fees
+    function test_TransferPoolToCreatorAfterFees() public view {
+        uint64 feePercentage = raffl.feeData().feePercentage;
+        uint256 fee = totalPool * feePercentage / 1 ether;
+
+        assertEq(entryAsset.balanceOf(raffleCreator) - initialRaffleCreatorBalance, totalPool - fee);
     }
 
     /// @dev should transfer fee to collector
@@ -78,22 +81,15 @@ contract RafflExtraRecipientWithERC20EntriesTest is Common {
         assertEq(entryAsset.balanceOf(feeCollector) - initialFeeCollectorBalance, fee);
     }
 
-    /// @dev should transfer pool to creator and extra recipient after fees
-    function test_TransferPoolToCreatorAndExtraRecipientAfterFees() public view {
-        uint64 feePercentage = raffl.feeData().feePercentage;
-        uint256 fee = totalPool * feePercentage / 1 ether;
-        uint256 netPool = totalPool - fee;
-
-        (address extraRecipientAddress, uint256 sharePercentage) = raffl.extraRecipient();
-        uint256 extraRecipientAmount = netPool * sharePercentage / 1 ether;
-        uint256 creatorAmount = netPool - extraRecipientAmount;
-
-        assertEq(entryAsset.balanceOf(extraRecipientAddress) - initialExtraRecipientBalance, extraRecipientAmount);
-        assertEq(entryAsset.balanceOf(raffleCreator) - initialRaffleCreatorBalance, creatorAmount);
-    }
-
     /// @dev should not let the raffle have pool balance left
     function test_IsEmptyPoolAfterDraw() public view {
         assertEq(entryAsset.balanceOf(address(raffl)), 0);
+    }
+
+    /// @dev should not let the raffle have prizes left
+    function test_IsEmptyPrizesAfterDraw() public view {
+        assertEq(testERC20.balanceOf(address(raffl)), 0);
+        assertEq(testERC721.balanceOf(address(raffl)), 0);
+        assertNotEq(testERC721.ownerOf(ERC721_TOKEN_ID), address(raffl));
     }
 }
