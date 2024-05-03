@@ -33,15 +33,6 @@ contract RafflRefundWithERC20EntriesTest is Common {
         );
     }
 
-    function processRaffleWithoutCriteriaMet() internal {
-        if (raffl.criteriaMet()) revert("Refunds available when criteria not met.");
-
-        vm.warp(raffl.deadline());
-        performUpkeepOnActiveRaffl(raffl);
-
-        assertTrue(raffl.gameStatus() == IRaffl.GameStatus.FailedDraw);
-    }
-
     /// @dev should let users refund entries on `FailedDraw` state
     function test_AllowRefundsOnFailedDraw() public {
         uint256 quantity = 5;
@@ -49,7 +40,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
 
         makeUserBuyEntries(raffl, entryAsset, userA, quantity);
 
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         uint256 amountPaid = raffl.entryPrice() * quantity;
         uint256 startUserBalance = entryAsset.balanceOf(userA);
@@ -66,7 +57,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
     /// @dev should not let users request entries refund twice
     function test_RevertIf_UserRequestRefundTwice() public {
         makeUserBuyEntries(raffl, entryAsset, userA, 1);
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(userA);
         raffl.refundEntries(userA);
@@ -78,7 +69,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
 
     /// @dev should only refund to users that bought entries
     function test_RevertIf_UserWithoutEntriesRequestRefund() public {
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(externalUser);
         vm.expectRevert(RafflErrors.UserWithoutEntries.selector);

@@ -21,7 +21,13 @@ contract RafflRewardsWithFreeEntriesTest is Common {
         MIN_ENTRIES = 4;
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
+                address(0),
+                ENTRY_PRICE,
+                MIN_ENTRIES,
+                block.timestamp + DEADLINE_FROM_NOW,
+                prizes,
+                tokenGates,
+                extraRecipient
             )
         );
 

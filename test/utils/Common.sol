@@ -201,4 +201,13 @@ abstract contract Common is Test {
         // DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries)
         (, winnerUser,) = abi.decode(entries[entries.length - 2].data, (uint256, address, uint256));
     }
+
+    function processRaffleWithoutCriteriaMet(Raffl raffl) internal {
+        if (raffl.criteriaMet()) revert("Refunds available when criteria not met.");
+
+        vm.warp(raffl.deadline());
+        performUpkeepOnActiveRaffl(raffl);
+
+        assertTrue(raffl.gameStatus() == IRaffl.GameStatus.FailedDraw);
+    }
 }

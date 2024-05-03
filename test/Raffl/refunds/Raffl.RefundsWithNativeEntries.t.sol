@@ -43,15 +43,6 @@ contract RafflRefundWithNativeEntriesTest is Common {
         assertTrue(raffl.gameStatus() == IRaffl.GameStatus.FailedDraw);
     }
 
-    function processRaffleWithoutCriteriaMet() internal {
-        if (raffl.criteriaMet()) revert("Refunds available when criteria not met.");
-
-        vm.warp(raffl.deadline());
-        performUpkeepOnActiveRaffl(raffl);
-        
-        assertTrue(raffl.gameStatus() == IRaffl.GameStatus.FailedDraw);
-    }
-
     /// @dev should let users refund entries on `FailedDraw` state
     function test_AllowRefundsOnFailedDraw() public {
         uint256 quantity = 5;
@@ -59,7 +50,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
         makeUserBuyEntries(raffl, userA, quantity);
 
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         uint256 amountPaid = raffl.entryPrice() * quantity;
         uint256 startUserBalance = userA.balance;
@@ -76,7 +67,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
     /// @dev should not let users request entries refund twice
     function test_RevertIf_UserRequestRefundTwice() public {
         makeUserBuyEntries(raffl, userA, 1);
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(userA);
         raffl.refundEntries(userA);
@@ -88,7 +79,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
     /// @dev should only refund to users that bought entries
     function test_RevertIf_UserWithoutEntriesRequestRefund() public {
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(externalUser);
         vm.expectRevert(RafflErrors.UserWithoutEntries.selector);
@@ -97,7 +88,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
     /// @dev should let the raffle creator withdraw back the prizes on `FailedDraw` state
     function test_AllowRaffleCreatorWithdrawBackPrizes() public {
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         uint256 startERC20Creator = testERC20.balanceOf(raffleCreator);
         uint256 startERC721Creator = testERC721.balanceOf(raffleCreator);
@@ -119,7 +110,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
     /// @dev should not let the raffle creator withdraw twice the prizes
     function test_RevertIf_CreatorRequestRefundTwice() public {
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(raffleCreator);
         raffl.refundPrizes();
@@ -131,7 +122,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
     /// @dev should only let the raffle creator withdraw back the prizes
     function test_RevertIf_NonCreatorRequestRefund() public {
-        processRaffleWithoutCriteriaMet();
+        processRaffleWithoutCriteriaMet(raffl);
 
         vm.prank(attacker);
         vm.expectRevert(RafflErrors.OnlyCreatorAllowed.selector);
