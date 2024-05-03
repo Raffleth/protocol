@@ -73,7 +73,7 @@ abstract contract Common is Test {
             chainlinkSubscriptionId
         );
 
-        // Add RafflFactory as Cosnumer
+        // Add RafflFactory as Consumer
         vrfCoordinator.addConsumer(rafflFactory.subscriptionId(), address(rafflFactory));
         vrfCoordinator.consumerIsAdded(rafflFactory.subscriptionId(), address(rafflFactory));
 
