@@ -12,7 +12,7 @@ import { Common } from "../utils/Common.sol";
 import { VRFCoordinatorV2PlusMock } from "../mocks/VRFCoordinatorV2PlusMock.sol";
 
 contract RafflAutomationTest is Common {
-    Raffl raffl;
+    Raffl public raffl;
 
     function setUp() public virtual {
         fundAndSetPrizes(raffleCreator);

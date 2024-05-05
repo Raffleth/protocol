@@ -25,7 +25,7 @@ import { IFeeManager } from "./interfaces/IFeeManager.sol";
 /// @author JA <@ubinatus>
 /// @notice Raffl is a decentralized platform built on the Ethereum blockchain, allowing users to create and participate
 /// in raffles/lotteries with complete transparency, security, and fairness.
-contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
+contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /**
      *
      * STATE
@@ -158,9 +158,9 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         return settled;
     }
 
-    /// @inheritdoc IFeeManager
-    function feeData() public view returns (IFeeManager.FeeData memory) {
-        return manager.feeData();
+    /// @notice Returns the current pool fee associated to this `Raffl`.
+    function poolFeeData() external view returns (address, uint64) {
+        return manager.poolFeeData(creator);
     }
 
     /// @inheritdoc IRaffl
@@ -195,13 +195,6 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
         if (gameStatus != GameStatus.FailedDraw) revert Errors.RefundsOnlyAllowedOnFailedDraw();
         if (creator != msg.sender) revert Errors.OnlyCreatorAllowed();
         if (prizesRefunded) revert Errors.PrizesAlreadyRefunded();
-
-        // Get feeData once to reduce SLOAD
-        IFeeManager.FeeData memory _feeData = feeData();
-        if (msg.value != _feeData.feePenality) revert Errors.RefundPenalityRequired();
-        if (_feeData.feePenality > 0) {
-            payable(_feeData.feeCollector).transfer(_feeData.feePenality);
-        }
 
         prizesRefunded = true;
         _transferPrizes(creator);
@@ -239,13 +232,13 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
             (entryToken != address(0)) ? TokenLib.balanceOf(entryToken, address(this)) : address(this).balance;
 
         if (balance > 0) {
-            // Get feeData once to reduce SLOAD
-            IFeeManager.FeeData memory _feeData = feeData();
+            // Get feeData
+            (address feeCollector, uint64 poolFeePercentage) = manager.poolFeeData(creator);
             uint256 fee = 0;
 
             // If fee is present, calculate it once and subtract from balance
-            if (_feeData.feePercentage != 0) {
-                fee = (balance * _feeData.feePercentage) / ONE;
+            if (poolFeePercentage != 0) {
+                fee = (balance * poolFeePercentage) / ONE;
                 balance -= fee;
             }
 
@@ -259,7 +252,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
             if (entryToken != address(0)) {
                 // Avoid checking the balance > 0 before each transfer
                 if (fee > 0) {
-                    TokenLib.safeTransfer(entryToken, _feeData.feeCollector, fee);
+                    TokenLib.safeTransfer(entryToken, feeCollector, fee);
                 }
                 if (extraRecipientAmount > 0) {
                     TokenLib.safeTransfer(entryToken, extraRecipient.recipient, extraRecipientAmount);
@@ -269,7 +262,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl, IFeeManager {
                 }
             } else {
                 if (fee > 0) {
-                    payable(_feeData.feeCollector).transfer(fee);
+                    payable(feeCollector).transfer(fee);
                 }
                 if (extraRecipientAmount > 0) {
                     payable(extraRecipient.recipient).transfer(extraRecipientAmount);

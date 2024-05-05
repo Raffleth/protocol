@@ -23,7 +23,7 @@ jobs:
           )" >> $GITHUB_ENV
 
       - name: "Run the tests"
-        run: "forge test --no-match-contract VestingTokenStressTest"
+        run: "forge test"
 
       - name: "Add test summary"
         run: |

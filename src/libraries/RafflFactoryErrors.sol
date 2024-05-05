@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (RafflFactoryErrors.sol)
+// Raffl Protocol (last updated v1.0.0) (libraries/RafflFactoryErrors.sol)
 pragma solidity ^0.8.25;
 
 /// @title Errors Library for RafflFactory.sol
@@ -48,4 +48,10 @@ library Errors {
 
     /// @notice Thrown if the given item is not a raffle.
     error NotARaffle();
+
+    /// @notice Error to indicate that the creation fee is insufficient.
+    error InsufficientCreationFee();
+
+    /// @notice Error to indicate an unsuccessful transfer of the creation fee.
+    error UnsuccessfulCreationFeeTransfer();
 }

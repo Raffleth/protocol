@@ -23,6 +23,7 @@ contract ChainlinkConfig {
 
     function getSepoliaEthConfig() internal pure returns (NetworkConfig memory sepoliaNetworkConfig) {
         sepoliaNetworkConfig = NetworkConfig({
+            //  solhint-disable-next-line max-line-length
             subscriptionId: 64_336_788_156_056_022_578_152_949_903_769_173_775_874_862_968_421_238_424_076_813_306_884_208_832_258,
             vrfCoordinator: 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B,
             keyHash: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae
