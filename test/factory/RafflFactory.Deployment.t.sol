@@ -16,8 +16,8 @@ contract RafflFactoryDeploymentTest is Common {
         new RafflFactory(
             address(0),
             feeCollector,
-            feePercentage,
-            feePenality,
+            creationFeeValue,
+            poolFeePercentage,
             address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId
@@ -30,8 +30,8 @@ contract RafflFactoryDeploymentTest is Common {
         new RafflFactory(
             address(implementation),
             address(0),
-            feePercentage,
-            feePenality,
+            creationFeeValue,
+            poolFeePercentage,
             address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId
@@ -44,8 +44,8 @@ contract RafflFactoryDeploymentTest is Common {
         new RafflFactory(
             address(implementation),
             feeCollector,
-            0.051 ether,
-            feePenality,
+            creationFeeValue,
+            0.1 ether + 1,
             address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId

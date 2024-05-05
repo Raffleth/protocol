@@ -44,8 +44,8 @@ abstract contract Common is Test {
     bytes CHECK_DATA = abi.encode(0, 500);
 
     // Network configs
-    uint64 feePercentage = 0.05 ether;
-    uint256 feePenality = 0;
+    uint64 creationFeeValue = 0 ether;
+    uint64 poolFeePercentage = 0.05 ether;
     bytes32 chainlinkKeyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
     uint256 chainlinkSubscriptionId = 420;
 
@@ -66,8 +66,8 @@ abstract contract Common is Test {
         rafflFactory = new RafflFactory(
             address(implementation),
             feeCollector,
-            feePercentage,
-            feePenality,
+            creationFeeValue,
+            poolFeePercentage,
             address(vrfCoordinator),
             chainlinkKeyHash,
             chainlinkSubscriptionId
@@ -112,6 +112,22 @@ abstract contract Common is Test {
         vm.prank(creator);
         raffle = Raffl(
             rafflFactory.createRaffle(
+                address(0),
+                ENTRY_PRICE,
+                MIN_ENTRIES,
+                block.timestamp + DEADLINE_FROM_NOW,
+                prizes,
+                tokenGates,
+                extraRecipient
+            )
+        );
+    }
+
+    function createNewRaffle(address creator, uint256 creationFee) public returns (Raffl raffle) {
+        vm.deal(creator, creationFee);
+        vm.prank(creator);
+        raffle = Raffl(
+            rafflFactory.createRaffle{ value: creationFee }(
                 address(0),
                 ENTRY_PRICE,
                 MIN_ENTRIES,
