@@ -8,8 +8,10 @@ import { AutomationCompatibleInterface } from "@chainlink/contracts/src/v0.8/aut
 
 import { Errors } from "./libraries/RafflFactoryErrors.sol";
 
+import { FactoryFeeManager } from "./abstracts/FactoryFeeManager.sol";
+
 import { IRaffl } from "./interfaces/IRaffl.sol";
-import { IFeeManager } from "./interfaces/IFeeManager.sol";
+import { IFactoryFeeManager } from "./interfaces/IFactoryFeeManager.sol";
 
 /*
                                                                        
@@ -23,8 +25,12 @@ import { IFeeManager } from "./interfaces/IFeeManager.sol";
  */
 
 /// @title RafflFactory
-/// @dev The RafflFactory contract can be used to create raffle contracts
-contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, IFeeManager {
+/// @author JA (@ubinatus)
+/// @notice Raffl is a decentralized platform built on the Ethereum blockchain, allowing users to create and participate
+/// in raffles/lotteries with complete transparency, security, and fairness.
+/// @dev The RafflFactory contract can be used to create raffle contracts, leveraging Chainlink VRF and Chainlink
+/// Automations.
+contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, FactoryFeeManager {
     /// @dev Max gas to bump to
     bytes32 keyHash;
 
@@ -37,57 +43,14 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
     /// @dev Chainlink subscription ID
     uint256 public subscriptionId;
 
-    /// @dev `feePercentage` is the new fee percentage that will be valid to be executed after `validFrom`.
-    /// @dev `feePenality` is the new fee penality that will be valid to be executed after `validFrom`.
-    /// @dev `validFrom` is the timestamp that marks the point in time where proposal can be executed.
-    struct ProposedFee {
-        uint64 feePercentage;
-        uint256 feePenality;
-        uint64 validFrom;
-    }
-
-    /// @dev `enabled` is the boolean which indicates if the individual `Raffl` fee should be applied
-    /// @dev `feePercentage` is the percentage of every transaction that will be collected.
-    struct RafflFeeData {
-        bool enabled;
-        uint64 feePercentage;
-    }
-
     /// @param raffle Address of the created raffle
     event RaffleCreated(address raffle);
-
-    /// @param feeCollector Address of the new fee collector.
-    event FeeCollectorChanged(address indexed feeCollector);
-
-    /// @param feePercentage Value for the new fee.
-    /// @param feePenality Value for the new penality.
-    event FeeProposal(uint64 feePercentage, uint256 feePenality);
-
-    /// @param feePercentage Value for the new fee.
-    /// @param feePenality Value for the new penality.
-    event FeeChanged(uint64 feePercentage, uint256 feePenality);
-
-    /// @param raffle Address of raffle with custom fee
-    event RafflFeeChanged(address raffle);
-
-    /// @dev Percentages and fees are calculated using 18 decimals where 0.05 ether is 5%.
-    uint64 private constant MAX_FEE = 0.05 ether;
 
     /// @notice The address that will be used as a delegate call target for `Raffl`s.
     address public immutable implementation;
 
     /// @dev It will be used as the salt for create2
     bytes32 internal _salt;
-
-    /// @dev Stores the address that will collect the fees of every success draw of `Raffl`s and the percentage that
-    /// will be charged.
-    FeeData internal _feeData;
-
-    /// @dev Stores the info necessary for a proposal change of the fee structure.
-    ProposedFee internal _proposedFee;
-
-    /// @dev Maps the `Raffl` addresses that have custom fees.
-    mapping(address => RafflFeeData) public customFees;
 
     /// @dev Maps the created `Raffl`s addresses
     mapping(address => bool) internal _raffles;
@@ -117,7 +80,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
      *
      * @param implementationAddress Address of `Raffl` contract implementation.
      * @param feeCollectorAddress   Address of `feeCollector`.
-     * @param feePercentageValue    Value for `feePercentage` that will be charged on `Raffl`'s success draw.
+     * @param creationFeeValue    Value for `creationFee` that will be charged on new `Raffl`s deployed.
+     * @param poolFeePercentage    Value for `feePercentage` that will be charged from the `Raffl`'s pool on success
+     * draw.
      * @param vrfCoordinator VRF Coordinator address
      * @param _keyHash The gas lane to use, which specifies the maximum gas price to bump to
      * @param _subscriptionId The subscription ID that this contract uses for funding VRF requests
@@ -125,8 +90,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
     constructor(
         address implementationAddress,
         address feeCollectorAddress,
-        uint64 feePercentageValue,
-        uint256 feePenalityValue,
+        uint64 creationFeeValue,
+        uint64 poolFeePercentage,
         address vrfCoordinator,
         bytes32 _keyHash,
         uint256 _subscriptionId
@@ -143,8 +108,11 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         _salt = seed;
 
         implementation = implementationAddress;
-        proposeFeeChange(feePercentageValue, feePenalityValue);
         setFeeCollector(feeCollectorAddress);
+        scheduleGlobalCreationFee(creationFeeValue);
+        scheduleGlobalPoolFee(poolFeePercentage);
+        _feeData.creationFee = creationFeeValue;
+        _feeData.poolFeePercentage = poolFeePercentage;
 
         keyHash = _keyHash;
         subscriptionId = _subscriptionId;
@@ -222,132 +190,6 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         _raffles[raffle] = true;
         _activeRaffles.push(ActiveRaffle(raffle, deadline));
         emit RaffleCreated(raffle);
-    }
-
-    /**
-     * @dev Set address of fee collector.
-     *
-     * Requirements:
-     *
-     * - `msg.sender` has to be the owner of the contract.
-     * - `newFeeCollector` can't be address 0x0.
-     *
-     * @param newFeeCollector Address of `feeCollector`.
-     */
-    function setFeeCollector(address newFeeCollector) public onlyOwner {
-        if (newFeeCollector == address(0)) revert Errors.AddressCanNotBeZero();
-
-        _feeData.feeCollector = newFeeCollector;
-        emit FeeCollectorChanged(newFeeCollector);
-    }
-
-    /**
-     * @notice Proposes a new fee structure change.
-     *
-     * @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
-     * @dev `newFeePercentage` must be within the range 0% - 5%.
-     * @dev `newFeePenality` is the value of the penality in native tokens.
-     *
-     * Requirements:
-     *
-     * - `msg.sender` has to be `feeCollector`.
-     * - `newFeePercentage` must be within 0 and maxFee range.
-     *
-     * @param newFeePercentage Value for `feePercentage` that will be charged on total pooled entried on successful
-     * draws.
-     * @param newFeePenality Value for `feePenality` that will be charged to the `Raffl` owner on failed draws.
-     */
-    function proposeFeeChange(uint64 newFeePercentage, uint256 newFeePenality) public {
-        if (msg.sender != _feeData.feeCollector && _feeData.feeCollector != address(0)) {
-            revert Errors.NotFeeCollector();
-        }
-        if (newFeePercentage > MAX_FEE) revert Errors.FeeOutOfRange();
-
-        if (_feeData.feeCollector == address(0)) {
-            _feeData.feePercentage = newFeePercentage;
-            _feeData.feePenality = newFeePenality;
-            emit FeeChanged(newFeePercentage, newFeePenality);
-        } else {
-            if (_feeData.feePercentage == newFeePercentage && _feeData.feePenality == newFeePenality) {
-                revert Errors.FeeAlreadySet();
-            }
-            _proposedFee = ProposedFee(newFeePercentage, newFeePenality, uint64(block.timestamp + 1 hours));
-            emit FeeProposal(newFeePercentage, newFeePenality);
-        }
-    }
-
-    /**
-     * @notice Executes the fee structure change proposal.
-     *
-     * Requirements:
-     *
-     * - `msg.sender` has to be `feeCollector`.
-     * - 1 hour must have passed after the latest fee percentage change proposal.
-     *
-     */
-    function executeFeeChange() public {
-        if (_proposedFee.validFrom > block.timestamp) revert Errors.ProposalNotReady();
-        if (_feeData.feePercentage == _proposedFee.feePercentage && _feeData.feePenality == _proposedFee.feePenality) {
-            revert Errors.FeeAlreadySet();
-        }
-
-        _feeData.feePercentage = _proposedFee.feePercentage;
-        _feeData.feePenality = _proposedFee.feePenality;
-
-        emit FeeChanged(_feeData.feePercentage, _feeData.feePenality);
-    }
-
-    /**
-     * @notice Updates the
-     *
-     * Requirements:
-     *
-     * - `msg.sender` has to be `feeCollector`.
-     * - `fee` must be within 0 and maxFee range.
-     *
-     */
-    function setRafflFee(address[] calldata raffles, bool enabled, uint64 fee) public {
-        if (msg.sender != _feeData.feeCollector) revert Errors.NotFeeCollector();
-        if (fee > MAX_FEE) revert Errors.FeeOutOfRange();
-
-        for (uint256 i = 0; i < raffles.length; ++i) {
-            if (!_raffles[raffles[i]]) revert Errors.NotARaffle();
-            customFees[raffles[i]] = RafflFeeData(enabled, fee);
-            emit RafflFeeChanged(raffles[i]);
-        }
-    }
-
-    /// @dev Exposes MAX_FEE in a lowerCamelCase.
-    function maxFee() external pure returns (uint64) {
-        return MAX_FEE;
-    }
-
-    /// @notice Exposes the `FeeData.feeCollector` to users.
-    function feeCollector() external view returns (address) {
-        return _feeData.feeCollector;
-    }
-
-    /// @notice Exposes the `FeeData.feePercentage` to users.
-    function feePercentage() external view returns (uint64) {
-        return feeData().feePercentage;
-    }
-
-    /// @notice Exposes the `FeeData.feePenality` to users.
-    function feePenality() external view returns (uint256) {
-        return feeData().feePenality;
-    }
-
-    /// @notice Exposes the `FeeData`.
-    function feeData() public view override returns (FeeData memory) {
-        if (customFees[msg.sender].enabled) {
-            return FeeData(_feeData.feeCollector, customFees[msg.sender].feePercentage, _feeData.feePenality);
-        }
-        return _feeData;
-    }
-
-    /// @notice Exposes the `ProposedFee`.
-    function proposedFee() public view returns (ProposedFee memory) {
-        return _proposedFee;
     }
 
     /// @notice Exposes the `ActiveRaffle`s
@@ -453,5 +295,101 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, I
         if (i >= _activeRaffles.length) revert Errors.ActiveRaffleIndexOutOfBounds();
         _activeRaffles[i] = _activeRaffles[_activeRaffles.length - 1];
         _activeRaffles.pop();
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function setFeeCollector(address newFeeCollector) public override onlyOwner {
+        if (newFeeCollector == address(0)) revert Errors.AddressCanNotBeZero();
+
+        _feeData.feeCollector = newFeeCollector;
+        emit FeeCollectorChange(newFeeCollector);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleGlobalCreationFee(uint64 newFeeValue) public override onlyOwner {
+        if (_upcomingCreationFee.valueChangeAt <= block.timestamp) {
+            _feeData.creationFee = _upcomingCreationFee.nextValue;
+        }
+
+        _upcomingCreationFee.nextValue = newFeeValue;
+        _upcomingCreationFee.valueChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit GlobalCreationFeeChange(newFeeValue);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleGlobalPoolFee(uint64 newFeePercentage) public override onlyOwner {
+        if (newFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
+
+        _upcomingPoolFee.nextValue = newFeePercentage;
+        _upcomingPoolFee.valueChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit GlobalPoolFeeChange(newFeePercentage);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleCustomCreationFee(address user, uint64 newFeeValue) external override onlyOwner {
+        CustomFeeData storage customFee = _creationFeeByUser[user];
+
+        if (customFee.valueChangeAt <= block.timestamp) {
+            customFee.value = customFee.nextValue;
+        }
+
+        uint64 ts = uint64(block.timestamp + 1 hours);
+
+        customFee.nextEnableState = true;
+        customFee.statusChangeAt = ts;
+        customFee.nextValue = newFeeValue;
+        customFee.valueChangeAt = ts;
+
+        emit CustomCreationFeeChange(user, newFeeValue);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleCustomPoolFee(address user, uint64 newFeePercentage) external override onlyOwner {
+        if (newFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
+
+        CustomFeeData storage customFee = _poolFeeByUser[user];
+
+        if (customFee.valueChangeAt <= block.timestamp) {
+            customFee.value = customFee.nextValue;
+        }
+
+        uint64 ts = uint64(block.timestamp + 1 hours);
+
+        customFee.nextEnableState = true;
+        customFee.statusChangeAt = ts;
+        customFee.nextValue = newFeePercentage;
+        customFee.valueChangeAt = ts;
+
+        emit CustomPoolFeeChange(user, newFeePercentage);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function toggleCustomCreationFee(address user, bool enable) external override onlyOwner {
+        CustomFeeData storage customFee = _creationFeeByUser[user];
+
+        if (customFee.statusChangeAt <= block.timestamp) {
+            customFee.isEnabled = customFee.nextEnableState;
+        }
+
+        customFee.nextEnableState = enable;
+        customFee.statusChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit CustomCreationFeeToggle(user, enable);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function toggleCustomPoolFee(address user, bool enable) external override onlyOwner {
+        CustomFeeData storage customFee = _poolFeeByUser[user];
+
+        if (customFee.statusChangeAt <= block.timestamp) {
+            customFee.isEnabled = customFee.nextEnableState;
+        }
+
+        customFee.nextEnableState = enable;
+        customFee.statusChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit CustomPoolFeeToggle(user, enable);
     }
 }

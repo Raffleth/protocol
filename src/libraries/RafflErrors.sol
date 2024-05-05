@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (RafflErrors.sol)
+// Raffl Protocol (last updated v1.0.0) (libraries/RafflErrors.sol)
 pragma solidity ^0.8.25;
 
 /// @title Errors Library for Raffl.sol
@@ -39,7 +39,4 @@ library Errors {
 
     /// @notice Thrown if fetching token balance of a user fails.
     error FetchTokenBalanceFail();
-
-    /// @notice Thrown if no refund penalty is provided.
-    error RefundPenalityRequired();
 }
