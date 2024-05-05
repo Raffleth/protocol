@@ -7,7 +7,7 @@ import { IFactoryFeeManager } from "../../src/interfaces/IFactoryFeeManager.sol"
 import { Common } from "../utils/Common.sol";
 
 contract RafflFactoryPoolFeeTest is Common {
-    function getVestingTokenPoolFee(address underlyingTokenAddress) internal view returns (uint64 poolFeePercentage) {
+    function getRafflUserPoolFee(address underlyingTokenAddress) internal view returns (uint64 poolFeePercentage) {
         (, poolFeePercentage) = rafflFactory.poolFeeData(underlyingTokenAddress);
     }
 
@@ -108,9 +108,9 @@ contract RafflFactoryPoolFeeTest is Common {
         //
         // Fee percentage change will be set after 1 hour
         skip(59 minutes);
-        assertNotEq(getVestingTokenPoolFee(externalUser), newCustomPoolFeePercentage);
+        assertNotEq(getRafflUserPoolFee(externalUser), newCustomPoolFeePercentage);
         skip(1 minutes);
-        assertEq(getVestingTokenPoolFee(externalUser), newCustomPoolFeePercentage);
+        assertEq(getRafflUserPoolFee(externalUser), newCustomPoolFeePercentage);
 
         // Intent #2:
         //
@@ -123,9 +123,9 @@ contract RafflFactoryPoolFeeTest is Common {
         //
         // Fee percentage change will be set after 1 hour
         skip(59 minutes);
-        assertNotEq(getVestingTokenPoolFee(externalUser), newCustomPoolFeePercentage);
+        assertNotEq(getRafflUserPoolFee(externalUser), newCustomPoolFeePercentage);
         skip(1 minutes);
-        assertEq(getVestingTokenPoolFee(externalUser), newCustomPoolFeePercentage);
+        assertEq(getRafflUserPoolFee(externalUser), newCustomPoolFeePercentage);
     }
 
     function test_RevertWhen_ChangeCustomPoolFeeAsNotOwner() external {
@@ -143,10 +143,10 @@ contract RafflFactoryPoolFeeTest is Common {
         vm.prank(curFeeCollector);
         rafflFactory.scheduleCustomPoolFee(externalUser, customPoolFee);
 
-        assertEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
         skip(1 hours);
-        assertNotEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertNotEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertEq(getRafflUserPoolFee(externalUser), customPoolFee);
 
         // Intent #1:
         //
@@ -158,14 +158,14 @@ contract RafflFactoryPoolFeeTest is Common {
         rafflFactory.toggleCustomPoolFee(externalUser, customPoolFeeEnabled);
         //
         // Custom fee will be disabled in 1 hour
-        assertNotEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertNotEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertEq(getRafflUserPoolFee(externalUser), customPoolFee);
         skip(59 minutes);
-        assertNotEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertNotEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertEq(getRafflUserPoolFee(externalUser), customPoolFee);
         skip(1 minutes);
-        assertEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertNotEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertNotEq(getRafflUserPoolFee(externalUser), customPoolFee);
 
         // Intent #2:
         //
@@ -177,14 +177,14 @@ contract RafflFactoryPoolFeeTest is Common {
         rafflFactory.toggleCustomPoolFee(externalUser, customPoolFeeEnabled);
         //
         // Custom fee will be enabled in 1 hour
-        assertEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertNotEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertNotEq(getRafflUserPoolFee(externalUser), customPoolFee);
         skip(59 minutes);
-        assertEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertNotEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertNotEq(getRafflUserPoolFee(externalUser), customPoolFee);
         skip(1 minutes);
-        assertNotEq(getVestingTokenPoolFee(externalUser), rafflFactory.globalPoolFee());
-        assertEq(getVestingTokenPoolFee(externalUser), customPoolFee);
+        assertNotEq(getRafflUserPoolFee(externalUser), rafflFactory.globalPoolFee());
+        assertEq(getRafflUserPoolFee(externalUser), customPoolFee);
     }
 
     function test_RevertWhen_ToggleCustomPoolFeeAsNotOwner() external {
