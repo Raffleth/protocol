@@ -19,15 +19,15 @@ contract DeployProtocol is BaseScript, ChainlinkConfig {
         address feeCollectorAddress = vm.envAddress("FEE_COLLECTOR_ADDRESS");
 
         // Fee values
-        uint64 feePercentage = uint64(vm.envUint("FEE_PERCENTAGE"));
-        uint64 feePenality = uint64(vm.envUint("FEE_PENALITY"));
+        uint64 creationFeeValue = uint64(vm.envUint("CREATION_FEE_VALUE"));
+        uint64 poolFeePercentage = uint64(vm.envUint("POOL_FEE_PERCENTAGE"));
 
         // Instantiate the Factory
         factory = new RafflFactory(
             address(implementation),
             feeCollectorAddress,
-            feePercentage,
-            feePenality,
+            creationFeeValue,
+            poolFeePercentage,
             chainlinkConfig.vrfCoordinator,
             chainlinkConfig.keyHash,
             chainlinkConfig.subscriptionId
