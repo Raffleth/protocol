@@ -75,13 +75,13 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
      *
      * - `implementationAddress` has to be a contract.
      * - `feeCollectorAddress` can't be address 0x0.
-     * - `feePercentageValue` must be within 0 and maxFee range.
+     * - `poolFeePercentage` must be within 0 and maxFee range.
      * - `vrfCoordinator` can't be address 0x0.
      *
      * @param implementationAddress Address of `Raffl` contract implementation.
      * @param feeCollectorAddress   Address of `feeCollector`.
      * @param creationFeeValue    Value for `creationFee` that will be charged on new `Raffl`s deployed.
-     * @param poolFeePercentage    Value for `feePercentage` that will be charged from the `Raffl`'s pool on success
+     * @param poolFeePercentage    Value for `poolFeePercentage` that will be charged from the `Raffl`s pool on success
      * draw.
      * @param vrfCoordinator VRF Coordinator address
      * @param _keyHash The gas lane to use, which specifies the maximum gas price to bump to
@@ -99,7 +99,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         VRFConsumerBaseV2Plus(vrfCoordinator)
     {
         if (implementationAddress == address(0)) revert Errors.AddressCanNotBeZero();
+        if (feeCollectorAddress == address(0)) revert Errors.AddressCanNotBeZero();
         if (vrfCoordinator == address(0)) revert Errors.AddressCanNotBeZero();
+        if (poolFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
 
         bytes32 seed;
         assembly ("memory-safe") {
@@ -108,9 +110,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         _salt = seed;
 
         implementation = implementationAddress;
-        setFeeCollector(feeCollectorAddress);
-        scheduleGlobalCreationFee(creationFeeValue);
-        scheduleGlobalPoolFee(poolFeePercentage);
+        _feeData.feeCollector = feeCollectorAddress;
         _feeData.creationFee = creationFeeValue;
         _feeData.poolFeePercentage = poolFeePercentage;
 
@@ -151,7 +151,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         IRaffl.TokenGate[] calldata tokenGates,
         IRaffl.ExtraRecipient calldata extraRecipient
     )
-        public
+        external
+        payable
         returns (address raffle)
     {
         if (prizes.length == 0) revert Errors.PrizesIsEmpty();
@@ -172,6 +173,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
         if (raffle == address(0)) revert Errors.FailedToDeploy();
         nextSalt();
+
+        _processCreationFee(msg.sender);
 
         IRaffl(raffle).initialize(
             entryToken, entryPrice, minEntries, deadline, msg.sender, prizes, tokenGates, extraRecipient
@@ -298,98 +301,10 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     }
 
     /// @inheritdoc IFactoryFeeManager
-    function setFeeCollector(address newFeeCollector) public override onlyOwner {
+    function setFeeCollector(address newFeeCollector) external override onlyOwner {
         if (newFeeCollector == address(0)) revert Errors.AddressCanNotBeZero();
 
         _feeData.feeCollector = newFeeCollector;
         emit FeeCollectorChange(newFeeCollector);
-    }
-
-    /// @inheritdoc IFactoryFeeManager
-    function scheduleGlobalCreationFee(uint64 newFeeValue) public override onlyOwner {
-        if (_upcomingCreationFee.valueChangeAt <= block.timestamp) {
-            _feeData.creationFee = _upcomingCreationFee.nextValue;
-        }
-
-        _upcomingCreationFee.nextValue = newFeeValue;
-        _upcomingCreationFee.valueChangeAt = uint64(block.timestamp + 1 hours);
-
-        emit GlobalCreationFeeChange(newFeeValue);
-    }
-
-    /// @inheritdoc IFactoryFeeManager
-    function scheduleGlobalPoolFee(uint64 newFeePercentage) public override onlyOwner {
-        if (newFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
-
-        _upcomingPoolFee.nextValue = newFeePercentage;
-        _upcomingPoolFee.valueChangeAt = uint64(block.timestamp + 1 hours);
-
-        emit GlobalPoolFeeChange(newFeePercentage);
-    }
-
-    /// @inheritdoc IFactoryFeeManager
-    function scheduleCustomCreationFee(address user, uint64 newFeeValue) external override onlyOwner {
-        CustomFeeData storage customFee = _creationFeeByUser[user];
-
-        if (customFee.valueChangeAt <= block.timestamp) {
-            customFee.value = customFee.nextValue;
-        }
-
-        uint64 ts = uint64(block.timestamp + 1 hours);
-
-        customFee.nextEnableState = true;
-        customFee.statusChangeAt = ts;
-        customFee.nextValue = newFeeValue;
-        customFee.valueChangeAt = ts;
-
-        emit CustomCreationFeeChange(user, newFeeValue);
-    }
-
-    /// @inheritdoc IFactoryFeeManager
-    function scheduleCustomPoolFee(address user, uint64 newFeePercentage) external override onlyOwner {
-        if (newFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
-
-        CustomFeeData storage customFee = _poolFeeByUser[user];
-
-        if (customFee.valueChangeAt <= block.timestamp) {
-            customFee.value = customFee.nextValue;
-        }
-
-        uint64 ts = uint64(block.timestamp + 1 hours);
-
-        customFee.nextEnableState = true;
-        customFee.statusChangeAt = ts;
-        customFee.nextValue = newFeePercentage;
-        customFee.valueChangeAt = ts;
-
-        emit CustomPoolFeeChange(user, newFeePercentage);
-    }
-
-    /// @inheritdoc IFactoryFeeManager
-    function toggleCustomCreationFee(address user, bool enable) external override onlyOwner {
-        CustomFeeData storage customFee = _creationFeeByUser[user];
-
-        if (customFee.statusChangeAt <= block.timestamp) {
-            customFee.isEnabled = customFee.nextEnableState;
-        }
-
-        customFee.nextEnableState = enable;
-        customFee.statusChangeAt = uint64(block.timestamp + 1 hours);
-
-        emit CustomCreationFeeToggle(user, enable);
-    }
-
-    /// @inheritdoc IFactoryFeeManager
-    function toggleCustomPoolFee(address user, bool enable) external override onlyOwner {
-        CustomFeeData storage customFee = _poolFeeByUser[user];
-
-        if (customFee.statusChangeAt <= block.timestamp) {
-            customFee.isEnabled = customFee.nextEnableState;
-        }
-
-        customFee.nextEnableState = enable;
-        customFee.statusChangeAt = uint64(block.timestamp + 1 hours);
-
-        emit CustomPoolFeeToggle(user, enable);
     }
 }

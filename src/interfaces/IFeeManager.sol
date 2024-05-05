@@ -16,7 +16,7 @@ interface IFeeManager {
         /// value during the execution of the payable `createRaffle` function.
         uint64 creationFee;
         /// @notice The transfer fee expressed in ether, where 0.01 ether corresponds to a 1% fee.
-        /// @dev `transferFeePercentage` is not in basis points but in ether units, with each ether unit representing a
+        /// @dev `poolFeePercentage` is not in basis points but in ether units, with each ether unit representing a
         /// percentage that will be collected from the pool on success draws.
         uint64 poolFeePercentage;
     }
@@ -54,5 +54,5 @@ interface IFeeManager {
     /// @notice Exposes the fee that will be collected from the pool on success draws for `Raffl`s.
     /// @param raffle Address of the `Raffl`.
     /// @dev Enabled custom fees overrides the global transfer fee.
-    function poolFeeData(address raffle) external view returns (address feeCollector, uint64 transferFeePercentage);
+    function poolFeeData(address raffle) external view returns (address feeCollector, uint64 poolFeePercentage);
 }

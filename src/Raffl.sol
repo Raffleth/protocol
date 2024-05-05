@@ -158,7 +158,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
         return settled;
     }
 
-    /// @notice Returns the current transfer fee associated to this `VestingToken`.
+    /// @notice Returns the current pool fee associated to this `Raffl`.
     function poolFeeData() external view returns (address, uint64) {
         return manager.poolFeeData(creator);
     }
@@ -232,7 +232,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
             (entryToken != address(0)) ? TokenLib.balanceOf(entryToken, address(this)) : address(this).balance;
 
         if (balance > 0) {
-            // Get feeData once to reduce SLOAD
+            // Get feeData
             (address feeCollector, uint64 poolFeePercentage) = manager.poolFeeData(creator);
             uint256 fee = 0;
 

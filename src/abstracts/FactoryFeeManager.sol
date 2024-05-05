@@ -40,6 +40,14 @@ abstract contract FactoryFeeManager is IFactoryFeeManager {
     /// @dev Maps a user address to a custom pool fee struct.
     mapping(address => CustomFeeData) internal _poolFeeByUser;
 
+    /// @notice Reverts if called by anyone other than the factory fee collector.
+    modifier onlyFeeCollector() {
+        if (msg.sender != _feeData.feeCollector) {
+            revert Errors.NotFeeCollector();
+        }
+        _;
+    }
+
     /**
      *
      * FUNCTIONS
@@ -89,6 +97,94 @@ abstract contract FactoryFeeManager is IFactoryFeeManager {
     function poolFeeData(address user) external view returns (address feeCollectorAddress, uint64 poolFeePercentage) {
         feeCollectorAddress = _feeData.feeCollector;
         poolFeePercentage = _getCurrentFee(_feeData.poolFeePercentage, _upcomingPoolFee, _poolFeeByUser[user]);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleGlobalCreationFee(uint64 newFeeValue) external override onlyFeeCollector {
+        if (_upcomingCreationFee.valueChangeAt <= block.timestamp) {
+            _feeData.creationFee = _upcomingCreationFee.nextValue;
+        }
+
+        _upcomingCreationFee.nextValue = newFeeValue;
+        _upcomingCreationFee.valueChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit GlobalCreationFeeChange(newFeeValue);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleGlobalPoolFee(uint64 newFeePercentage) external override onlyFeeCollector {
+        if (newFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
+
+        _upcomingPoolFee.nextValue = newFeePercentage;
+        _upcomingPoolFee.valueChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit GlobalPoolFeeChange(newFeePercentage);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleCustomCreationFee(address user, uint64 newFeeValue) external override onlyFeeCollector {
+        CustomFeeData storage customFee = _creationFeeByUser[user];
+
+        if (customFee.valueChangeAt <= block.timestamp) {
+            customFee.value = customFee.nextValue;
+        }
+
+        uint64 ts = uint64(block.timestamp + 1 hours);
+
+        customFee.nextEnableState = true;
+        customFee.statusChangeAt = ts;
+        customFee.nextValue = newFeeValue;
+        customFee.valueChangeAt = ts;
+
+        emit CustomCreationFeeChange(user, newFeeValue);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function scheduleCustomPoolFee(address user, uint64 newFeePercentage) external override onlyFeeCollector {
+        if (newFeePercentage > MAX_POOL_FEE) revert Errors.FeeOutOfRange();
+
+        CustomFeeData storage customFee = _poolFeeByUser[user];
+
+        if (customFee.valueChangeAt <= block.timestamp) {
+            customFee.value = customFee.nextValue;
+        }
+
+        uint64 ts = uint64(block.timestamp + 1 hours);
+
+        customFee.nextEnableState = true;
+        customFee.statusChangeAt = ts;
+        customFee.nextValue = newFeePercentage;
+        customFee.valueChangeAt = ts;
+
+        emit CustomPoolFeeChange(user, newFeePercentage);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function toggleCustomCreationFee(address user, bool enable) external override onlyFeeCollector {
+        CustomFeeData storage customFee = _creationFeeByUser[user];
+
+        if (customFee.statusChangeAt <= block.timestamp) {
+            customFee.isEnabled = customFee.nextEnableState;
+        }
+
+        customFee.nextEnableState = enable;
+        customFee.statusChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit CustomCreationFeeToggle(user, enable);
+    }
+
+    /// @inheritdoc IFactoryFeeManager
+    function toggleCustomPoolFee(address user, bool enable) external override onlyFeeCollector {
+        CustomFeeData storage customFee = _poolFeeByUser[user];
+
+        if (customFee.statusChangeAt <= block.timestamp) {
+            customFee.isEnabled = customFee.nextEnableState;
+        }
+
+        customFee.nextEnableState = enable;
+        customFee.statusChangeAt = uint64(block.timestamp + 1 hours);
+
+        emit CustomPoolFeeToggle(user, enable);
     }
 
     /// @notice Calculates the current fee based on global, custom, and upcoming fee data.

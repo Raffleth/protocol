@@ -48,7 +48,7 @@ interface IFactoryFeeManager is IFeeManager {
     ///
     /// Requirements:
     ///
-    /// - `msg.sender` has to be the owner of the contract.
+    /// - `msg.sender` has to be the owner of the factory.
     /// - `newFeeCollector` can't be address 0x0.
     ///
     /// @param newFeeCollector Address of `feeCollector`.
@@ -56,6 +56,7 @@ interface IFactoryFeeManager is IFeeManager {
     function setFeeCollector(address newFeeCollector) external;
 
     /// @notice Sets a new global creation fee value, to take effect after 1 hour.
+    /// @dev `msg.sender` has to be the fee collector of the factory.
     /// @param newFeeValue Value for `creationFee` that will be charged on `Raffl`'s deployments.
     function scheduleGlobalCreationFee(uint64 newFeeValue) external;
 
@@ -66,6 +67,7 @@ interface IFactoryFeeManager is IFeeManager {
     /// Requirements:
     ///
     /// - `newFeePercentage` must be within minPoolFee and maxPoolFee.
+    /// - `msg.sender` has to be the fee collector of the factory.
     ///
     /// @param newFeePercentage Value for `poolFeePercentage` that will be charged on `Raffl`'s pools.
     function scheduleGlobalPoolFee(uint64 newFeePercentage) external;
@@ -82,7 +84,7 @@ interface IFactoryFeeManager is IFeeManager {
     /// `CustomCreationFeeChange` event upon successful fee update.
     ///
     /// Requirements:
-    /// - The caller must have owner privileges to execute this function.
+    /// - `msg.sender` has to be the fee collector of the factory.
     ///
     /// @param user Address of the `user`.
     /// @param newFeeValue The new creation fee amount to be set, in wei, to replace the current fee after the specified
@@ -101,7 +103,7 @@ interface IFactoryFeeManager is IFeeManager {
     /// Emits a `CustomPoolFeeChange` event upon successful execution.
     ///
     /// Requirements:
-    /// - Caller must be the contract owner.
+    /// - `msg.sender` has to be the fee collector of the factory.
     /// - `newFeePercentage` must be within the range limited by `MAX_POOL_FEE`.
     ///
     /// @param user Address of the `user`.
@@ -111,12 +113,13 @@ interface IFactoryFeeManager is IFeeManager {
 
     /// @notice Enables or disables the custom creation fee for a given Raffle, with the change taking effect
     /// after 1 hour.
+    /// @dev `msg.sender` has to be the fee collector of the factory.
     /// @param user Address of the `user`.
     /// @param enable True to enable the fee, false to disable it.
     function toggleCustomCreationFee(address user, bool enable) external;
 
     /// @notice Enables or disables the custom pool fee for a given Raffle, to take effect after 1 hour.
-    ///
+    /// @dev `msg.sender` has to be the fee collector of the factory.
     /// @param user Address of the `user`.
     /// @param enable True to enable the fee, false to disable it.
     function toggleCustomPoolFee(address user, bool enable) external;
