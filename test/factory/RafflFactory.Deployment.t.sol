@@ -7,8 +7,8 @@ import { Errors } from "../../src/libraries/RafflFactoryErrors.sol";
 import { Common } from "../utils/Common.sol";
 
 contract RafflFactoryDeploymentTest is Common {
-    uint64 PROPOSED_FEE = 0.03 ether;
-    uint64 PROPOSED_FEE_PENALITY = 0.03 ether;
+    uint64 public PROPOSED_FEE = 0.03 ether;
+    uint64 public PROPOSED_FEE_PENALITY = 0.03 ether;
 
     /// @dev should not allow an implementation that is not a contract
     function test_RevertIf_ImplementationZeroAddress() public {

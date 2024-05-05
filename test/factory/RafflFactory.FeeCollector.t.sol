@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.25;
 
-import { RafflFactory } from "../../src/RafflFactory.sol";
-import { IFeeManager } from "../../src/interfaces/IFeeManager.sol";
 import { Errors } from "../../src/libraries/RafflFactoryErrors.sol";
 
 import { Common } from "../utils/Common.sol";

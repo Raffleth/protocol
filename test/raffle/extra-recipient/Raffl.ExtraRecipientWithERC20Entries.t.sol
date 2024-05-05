@@ -73,7 +73,7 @@ contract RafflExtraRecipientWithERC20EntriesTest is Common {
 
     /// @dev should transfer fee to collector
     function test_TransferFeeToCollector() public view {
-        (,uint64 feePercentage) = raffl.poolFeeData();
+        (, uint64 feePercentage) = raffl.poolFeeData();
         uint256 fee = totalPool * feePercentage / 1 ether;
 
         assertEq(entryAsset.balanceOf(feeCollector) - initialFeeCollectorBalance, fee);
@@ -81,7 +81,7 @@ contract RafflExtraRecipientWithERC20EntriesTest is Common {
 
     /// @dev should transfer pool to creator and extra recipient after fees
     function test_TransferPoolToCreatorAndExtraRecipientAfterFees() public view {
-        (,uint64 feePercentage) = raffl.poolFeeData();
+        (, uint64 feePercentage) = raffl.poolFeeData();
         uint256 fee = totalPool * feePercentage / 1 ether;
         uint256 netPool = totalPool - fee;
 
