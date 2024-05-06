@@ -64,7 +64,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
     /// @dev Maximum number of entries a single address can hold.
     uint256 internal constant MAX_ENTRIES_PER_USER = 10 ether;
-    
+
     /// @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
     uint256 internal constant ONE = 1 ether;
 
