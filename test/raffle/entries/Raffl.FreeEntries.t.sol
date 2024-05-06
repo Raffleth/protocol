@@ -39,11 +39,11 @@ contract RafflFreeEntriesTest is Common {
     }
 
     /// @dev should only allow users to own 1 entry
-    function test_RevertIf_MaxEntriesReached() public {
+    function test_RevertIf_MaxUserEntriesReached() public {
         vm.startPrank(userA);
         raffl.buyEntries(1);
 
-        vm.expectRevert(Errors.MaxEntriesReached.selector);
+        vm.expectRevert(Errors.MaxUserEntriesReached.selector);
         raffl.buyEntries(1);
         vm.stopPrank();
     }

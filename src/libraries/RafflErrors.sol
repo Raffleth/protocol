@@ -31,8 +31,11 @@ library Errors {
     /// @notice Thrown if prizes are already refunded.
     error PrizesAlreadyRefunded();
 
-    /// @notice Thrown if the maximum entries limit has been reached.
-    error MaxEntriesReached();
+    /// @notice Thrown if the maximum entries limit per user has been reached.
+    error MaxUserEntriesReached();
+
+    /// @notice Thrown if the total maximum entries limit has been reached.
+    error MaxTotalEntriesReached();
 
     /// @notice Thrown if the refund operation is initiated without any refunds.
     error WithoutRefunds();

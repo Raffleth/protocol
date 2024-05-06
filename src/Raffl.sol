@@ -61,13 +61,12 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     bool public prizesRefunded;
     /// @dev Status of the Raffl game
     GameStatus public gameStatus;
-
     /// @dev Maximum number of entries a single address can hold.
-    uint256 internal constant MAX_ENTRIES_PER_USER = 10 ether;
-
+    uint64 internal constant MAX_ENTRIES_PER_USER = 2 ** 64 - 1; // type(uint64).max
+    /// @dev Maximum total of entries.
+    uint256 internal constant MAX_TOTAL_ENTRIES = 2 ** 256 - 1; // type(uint256).max
     /// @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
     uint256 internal constant ONE = 1 ether;
-
     /// @notice The manager that deployed this contract which controls the values for `fee` and `feeCollector`.
     IFeeManager public manager;
 
@@ -174,7 +173,10 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @inheritdoc IRaffl
     function buyEntries(uint256 quantity) external payable override nonReentrant {
         if (block.timestamp > deadline) revert Errors.EntriesPurchaseClosed();
+        if (totalEntries() >= MAX_TOTAL_ENTRIES) revert Errors.MaxTotalEntriesReached();
+
         _ensureTokenGating(msg.sender);
+
         if (entryPrice > 0) {
             _purchaseEntry(quantity);
         } else {
@@ -289,7 +291,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @param quantity The quantity of entries to purchase.
     function _purchaseEntry(uint256 quantity) private {
         if (quantity == 0) revert Errors.EntryQuantityRequired();
-        if (balanceOf(msg.sender) >= MAX_ENTRIES_PER_USER) revert Errors.MaxEntriesReached();
+        if (balanceOf(msg.sender) >= MAX_ENTRIES_PER_USER) revert Errors.MaxUserEntriesReached();
         uint256 value = quantity * entryPrice;
         // Check if entryToken is a non-zero address, meaning ERC-20 is used for purchase
         if (entryToken != address(0)) {
@@ -314,7 +316,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @dev Internal function to handle the purchase of free entries with entry price equal to 0.
     function _purchaseFreeEntry() private {
         // Allow up to one free entry per user
-        if (balanceOf(msg.sender) == 1) revert Errors.MaxEntriesReached();
+        if (balanceOf(msg.sender) == 1) revert Errors.MaxUserEntriesReached();
 
         // Mints a single entry for the user
         _mint(msg.sender, 1);

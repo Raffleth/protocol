@@ -40,24 +40,6 @@ contract RafflEntriesWithNativeTest is Common {
         raffl.buyEntries{ value: 123 }(5);
     }
 
-    /// @dev should validate the max number of entries acquired
-    function test_RevertIf_MaxLimitReached() public {
-        uint256 quantity = 10 ether;
-        uint256 value = entryPrice * quantity;
-
-        vm.deal(userA, value);
-        vm.prank(userA);
-        raffl.buyEntries{ value: value }(quantity);
-
-        quantity = 1;
-        value = entryPrice * quantity;
-
-        vm.deal(userA, value);
-        vm.expectRevert(Errors.MaxEntriesReached.selector);
-        vm.prank(userA);
-        raffl.buyEntries{ value: value }(quantity);
-    }
-
     /// @dev should emit `EntriesBought` event when buying entries
     function test_EmitEntriesBought() public {
         uint256 quantity = 5;
