@@ -116,20 +116,23 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
         factory = msg.sender;
         manager = IFeeManager(msg.sender);
 
-        for (uint256 i = 0; i < _prizes.length;) {
+        uint256 i = 0;
+        for (i; i < _prizes.length;) {
             prizes.push(_prizes[i]);
 
             unchecked {
                 ++i;
             }
         }
-        for (uint256 i = 0; i < _tokenGatesArray.length;) {
+
+        for (i = 0; i < _tokenGatesArray.length;) {
             tokenGates.push(_tokenGatesArray[i]);
 
             unchecked {
                 ++i;
             }
         }
+
         extraRecipient = _extraRecipient;
 
         gameStatus = GameStatus.Initialized;
@@ -161,6 +164,11 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /// @notice Returns the current pool fee associated to this `Raffl`.
     function poolFeeData() external view returns (address, uint64) {
         return manager.poolFeeData(creator);
+    }
+
+    /// @notice Returns the current prizes associated to this `Raffl`.
+    function getPrizes() external view returns (Prize[] memory) {
+        return prizes;
     }
 
     /// @inheritdoc IRaffl
@@ -210,18 +218,17 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /// @dev Transfers the prizes to the specified user.
     /// @param user The address of the user who will receive the prizes.
     function _transferPrizes(address user) private {
-        uint256 len = prizes.length;
-        for (uint256 i = 0; i < len;) {
+        uint256 i = prizes.length;
+        for (i; i != 0;) {
+            unchecked {
+                --i;
+            }
             uint256 val = prizes[i].value;
             address asset = prizes[i].asset;
             if (prizes[i].assetType == AssetType.ERC20) {
                 TokenLib.safeTransfer(asset, user, val);
             } else {
                 TokenLib.safeTransferFrom(asset, address(this), user, val);
-            }
-
-            unchecked {
-                ++i;
             }
         }
     }
@@ -330,8 +337,12 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /// @notice Ensures that the user has all the requirements from the `tokenGates` array
     /// @param user Address of the user
     function _ensureTokenGating(address user) private view {
-        uint256 len = tokenGates.length;
-        for (uint256 i = 0; i < len;) {
+        uint256 i = tokenGates.length;
+        for (i; i != 0;) {
+            unchecked {
+                --i;
+            }
+
             address token = tokenGates[i].token;
             uint256 amount = tokenGates[i].amount;
 
@@ -341,10 +352,6 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
             // Check if the balance meets the requirement
             if (balance < amount) {
                 revert Errors.TokenGateRestriction();
-            }
-
-            unchecked {
-                ++i;
             }
         }
     }

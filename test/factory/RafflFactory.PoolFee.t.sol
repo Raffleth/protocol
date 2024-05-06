@@ -76,11 +76,12 @@ contract RafflFactoryPoolFeeTest is Common {
     function testFuzz_CanChangePoolFeeWithinBounds(uint64 newFeePercentage) external {
         uint256 initialFactoryPoolFee = rafflFactory.globalPoolFee();
         uint256 maxFactoryPoolFee = rafflFactory.maxPoolFee();
-        vm.assume(newFeePercentage >= 0);
+
+        vm.assume(newFeePercentage > 0);
         vm.assume(newFeePercentage <= maxFactoryPoolFee);
         vm.assume(newFeePercentage != initialFactoryPoolFee);
-        // newFeePercentage = bound(newFeePercentage, MIN_FACTORY_TRANSFER_FEE, MAX_FACTORY_TRANSFER_FEE); // FIXME: not
-        // working.
+        // FIXME: not working.
+        // newFeePercentage = bound(newFeePercentage, MIN_FACTORY_TRANSFER_FEE, MAX_FACTORY_TRANSFER_FEE);
 
         vm.prank(rafflFactory.feeCollector());
         rafflFactory.scheduleGlobalPoolFee(newFeePercentage);

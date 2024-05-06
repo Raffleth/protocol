@@ -111,8 +111,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
         implementation = implementationAddress;
         _feeData.feeCollector = feeCollectorAddress;
-        _feeData.creationFee = creationFeeValue;
-        _feeData.poolFeePercentage = poolFeePercentage;
+        _upcomingCreationFee.nextValue = creationFeeValue;
+        _upcomingPoolFee.nextValue = poolFeePercentage;
 
         keyHash = _keyHash;
         subscriptionId = _subscriptionId;
@@ -155,7 +155,6 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         payable
         returns (address raffle)
     {
-        if (prizes.length == 0) revert Errors.PrizesIsEmpty();
         if (block.timestamp >= deadline) revert Errors.DeadlineIsNotFuture();
 
         address impl = implementation;
@@ -180,13 +179,19 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
             entryToken, entryPrice, minEntries, deadline, msg.sender, prizes, tokenGates, extraRecipient
         );
 
-        for (uint256 i = 0; i < prizes.length; ++i) {
+        uint256 i = prizes.length;
+        for (i; i != 0;) {
+            unchecked {
+                --i;
+            }
+
             if (prizes[i].assetType == IRaffl.AssetType.ERC20 && prizes[i].value == 0) {
                 revert Errors.ERC20PrizeAmountIsZero();
             }
             (bool success,) = prizes[i].asset.call(
                 abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, raffle, prizes[i].value)
             );
+
             if (!success) revert Errors.UnsuccessfulTransferFromPrize();
         }
 

@@ -16,9 +16,6 @@ library Errors {
     /// @notice Thrown if the sender is not a fee collector.
     error NotFeeCollector();
 
-    /// @notice Thrown if the prizes array is empty.
-    error PrizesIsEmpty();
-
     /// @notice Thrown if the provided deadline is not in the future.
     error DeadlineIsNotFuture();
 
