@@ -63,7 +63,7 @@ contract RafflRefundWithERC20EntriesTest is Common {
         raffl.refundEntries(userA);
 
         vm.prank(userA);
-        vm.expectRevert(Errors.UserWithoutEntries.selector);
+        vm.expectRevert(Errors.UserAlreadyRefunded.selector);
         raffl.refundEntries(userA);
     }
 

@@ -57,7 +57,7 @@ contract RafflEntriesWithNativeTest is Common {
     /// @dev should correctly increase the `pool` and `entries` state when buying entries
     function test_IncresesPoolOnEntryPurchase() public {
         uint256 initialPool = raffl.pool();
-        uint256 initialEntries = raffl.entries();
+        uint256 initialEntries = raffl.totalEntries();
 
         uint256 quantity = 7;
         uint256 value = entryPrice * quantity;
@@ -66,24 +66,24 @@ contract RafflEntriesWithNativeTest is Common {
         uint256 currentPool = raffl.pool();
         assertEq(currentPool - initialPool, value);
 
-        uint256 currentEntries = raffl.entries();
+        uint256 currentEntries = raffl.totalEntries();
         assertEq(currentEntries - initialEntries, quantity);
     }
 
     /// @dev should set correctly the `entriesMap` and `userEntriesMap` when buying entries
     function test_SetEntriesMapAndUserEntriesMap() public {
-        uint256 lastEntry = raffl.entries();
+        uint256 lastEntry = raffl.totalEntries();
 
         uint256 quantity = 7;
         makeUserBuyEntries(raffl, userC, quantity);
 
         for (uint256 i = 0; i < quantity; i++) {
             uint256 entryNumber = lastEntry + i;
-            address entryOwner = raffl.entriesMap(entryNumber);
+            address entryOwner = raffl.ownerOf(entryNumber);
             assertEq(entryOwner, userC);
         }
 
-        uint256 userTotalEntries = raffl.userEntriesMap(userC);
+        uint256 userTotalEntries = raffl.balanceOf(userC);
         assertEq(userTotalEntries, quantity);
     }
 }

@@ -68,7 +68,7 @@ contract RafflEntriesWithERC20Test is Common {
     /// @dev should correctly increase the `pool` and `entries` state when buying entries
     function test_IncresesPoolOnERC20EntryPurchase() public {
         uint256 initialPool = raffl.pool();
-        uint256 initialEntries = raffl.entries();
+        uint256 initialEntries = raffl.totalEntries();
 
         uint256 quantity = 7;
         uint256 value = entryPrice * quantity;
@@ -77,24 +77,24 @@ contract RafflEntriesWithERC20Test is Common {
         uint256 currentPool = raffl.pool();
         assertEq(currentPool - initialPool, value);
 
-        uint256 currentEntries = raffl.entries();
+        uint256 currentEntries = raffl.totalEntries();
         assertEq(currentEntries - initialEntries, quantity);
     }
 
     /// @dev should set correctly the `entriesMap` and `userEntriesMap` when buying entries
     function test_SetERC20EntriesMapAndUserEntriesMap() public {
-        uint256 lastEntry = raffl.entries();
+        uint256 lastEntry = raffl.totalEntries();
 
         uint256 quantity = 7;
         makeUserBuyEntries(raffl, entryAsset, userC, quantity);
 
         for (uint256 i = 0; i < quantity; i++) {
             uint256 entryNumber = lastEntry + i;
-            address entryOwner = raffl.entriesMap(entryNumber);
+            address entryOwner = raffl.ownerOf(entryNumber);
             assertEq(entryOwner, userC);
         }
 
-        uint256 userTotalEntries = raffl.userEntriesMap(userC);
+        uint256 userTotalEntries = raffl.balanceOf(userC);
         assertEq(userTotalEntries, quantity);
     }
 }

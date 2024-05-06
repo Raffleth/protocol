@@ -90,7 +90,7 @@ contract RafflAutomationTest is Common {
 
         // Check topic, data and sender,
         vm.expectEmit(true, false, false, true, address(raffl));
-        emit IRaffl.DeadlineSuccessCriteria(nextRequestId, raffl.entries(), raffl.minEntries());
+        emit IRaffl.DeadlineSuccessCriteria(nextRequestId, raffl.totalEntries(), raffl.minEntries());
 
         rafflFactory.performUpkeep(performData);
 
