@@ -166,6 +166,11 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
         return manager.poolFeeData(creator);
     }
 
+    /// @notice Returns the current prizes associated to this `Raffl`.
+    function getPrizes() external view returns (Prize[] memory) {
+        return prizes;
+    }
+
     /// @inheritdoc IRaffl
     function buyEntries(uint256 quantity) external payable override nonReentrant {
         if (block.timestamp > deadline) revert Errors.EntriesPurchaseClosed();

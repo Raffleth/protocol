@@ -212,9 +212,13 @@ abstract contract Common is Test {
         vrfCoordinator.fulfillRandomWords(requestId, consumer);
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
-        assertEq(entries[entries.length - 2].topics[0], keccak256("DrawSuccess(uint256,uint256,address,uint256)"));
-        // DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries)
-        (, winnerUser,) = abi.decode(entries[entries.length - 2].data, (uint256, address, uint256));
+        if (entries.length >= 2) {
+            assertEq(entries[entries.length - 2].topics[0], keccak256("DrawSuccess(uint256,uint256,address,uint256)"));
+            // DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries)
+            (, winnerUser,) = abi.decode(entries[entries.length - 2].data, (uint256, address, uint256));
+        } else {
+            revert("RandomWordsFulfilled failed executing `disperseRewards`");
+        }
     }
 
     function processRaffleWithoutCriteriaMet(Raffl raffl) internal {

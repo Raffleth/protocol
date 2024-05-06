@@ -111,8 +111,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
         implementation = implementationAddress;
         _feeData.feeCollector = feeCollectorAddress;
-        _feeData.creationFee = creationFeeValue;
-        _feeData.poolFeePercentage = poolFeePercentage;
+        _upcomingCreationFee.nextValue = creationFeeValue;
+        _upcomingPoolFee.nextValue = poolFeePercentage;
 
         keyHash = _keyHash;
         subscriptionId = _subscriptionId;
