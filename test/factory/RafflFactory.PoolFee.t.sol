@@ -81,7 +81,7 @@ contract RafflFactoryPoolFeeTest is Common {
         vm.assume(newFeePercentage <= maxFactoryPoolFee);
         vm.assume(newFeePercentage != initialFactoryPoolFee);
         // FIXME: not working.
-        // newFeePercentage = bound(newFeePercentage, MIN_FACTORY_TRANSFER_FEE, MAX_FACTORY_TRANSFER_FEE); 
+        // newFeePercentage = bound(newFeePercentage, MIN_FACTORY_TRANSFER_FEE, MAX_FACTORY_TRANSFER_FEE);
 
         vm.prank(rafflFactory.feeCollector());
         rafflFactory.scheduleGlobalPoolFee(newFeePercentage);
