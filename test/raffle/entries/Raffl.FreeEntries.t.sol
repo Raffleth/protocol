@@ -62,7 +62,7 @@ contract RafflFreeEntriesTest is Common {
     /// @dev should set the `entries` to 1 for the user and should not increase the `pool` state
     function test_IncresesPoolOnFreeEntryAcquire() public {
         uint256 initialPool = raffl.pool();
-        uint256 initialEntries = raffl.entries();
+        uint256 initialEntries = raffl.totalEntries();
 
         vm.prank(userA);
         raffl.buyEntries(666);
@@ -70,22 +70,22 @@ contract RafflFreeEntriesTest is Common {
         uint256 currentPool = raffl.pool();
         assertEq(currentPool - initialPool, 0);
 
-        uint256 currentEntries = raffl.entries();
+        uint256 currentEntries = raffl.totalEntries();
         assertEq(currentEntries - initialEntries, 1);
     }
 
     /// @dev should set correctly the `entriesMap` and `userEntriesMap` when buying entries
     function test_SetFreeEntriesMapAndUserEntriesMap() public {
-        uint256 lastEntry = raffl.entries();
+        uint256 lastEntry = raffl.totalEntries();
 
         vm.prank(userA);
         raffl.buyEntries(666);
 
         uint256 entryNumber = lastEntry;
-        address entryOwner = raffl.entriesMap(entryNumber);
+        address entryOwner = raffl.ownerOf(entryNumber);
         assertEq(entryOwner, userA);
 
-        uint256 userTotalEntries = raffl.userEntriesMap(userA);
+        uint256 userTotalEntries = raffl.balanceOf(userA);
         assertEq(userTotalEntries, 1);
     }
 }

@@ -25,6 +25,9 @@ library Errors {
     /// @notice Thrown if a user without entries tries to claim.
     error UserWithoutEntries();
 
+    /// @notice Thrown if a user was already refunded entries.
+    error UserAlreadyRefunded();
+
     /// @notice Thrown if prizes are already refunded.
     error PrizesAlreadyRefunded();
 

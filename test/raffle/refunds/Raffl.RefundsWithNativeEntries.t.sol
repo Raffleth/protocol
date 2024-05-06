@@ -22,8 +22,8 @@ contract RafflRefundWithNativeEntriesTest is Common {
         // Buy just 1 entry
         makeUserBuyEntries(raffl, userA, 1);
 
-        assertEq(raffl.entries(), 1);
-        assertLt(raffl.entries(), raffl.minEntries());
+        assertEq(raffl.totalEntries(), 1);
+        assertLt(raffl.totalEntries(), raffl.minEntries());
         assertFalse(raffl.criteriaMet());
 
         // Move to deadline
@@ -35,7 +35,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
 
         // Expect DeadlineFailedCriteria emit event
         vm.expectEmit(true, true, true, true, address(raffl));
-        emit IRaffl.DeadlineFailedCriteria(raffl.entries(), raffl.minEntries());
+        emit IRaffl.DeadlineFailedCriteria(raffl.totalEntries(), raffl.minEntries());
         rafflFactory.performUpkeep(performData);
 
         assertTrue(raffl.upkeepPerformed());
@@ -73,7 +73,7 @@ contract RafflRefundWithNativeEntriesTest is Common {
         raffl.refundEntries(userA);
 
         vm.prank(userA);
-        vm.expectRevert(Errors.UserWithoutEntries.selector);
+        vm.expectRevert(Errors.UserAlreadyRefunded.selector);
         raffl.refundEntries(userA);
     }
 

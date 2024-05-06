@@ -7,6 +7,8 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { TokenLib } from "./libraries/TokenLib.sol";
 import { Errors } from "./libraries/RafflErrors.sol";
 
+import { EntriesManager } from "./abstracts/EntriesManager.sol";
+
 import { IRaffl } from "./interfaces/IRaffl.sol";
 import { IFeeManager } from "./interfaces/IFeeManager.sol";
 
@@ -25,7 +27,7 @@ import { IFeeManager } from "./interfaces/IFeeManager.sol";
 /// @author JA <@ubinatus>
 /// @notice Raffl is a decentralized platform built on the Ethereum blockchain, allowing users to create and participate
 /// in raffles/lotteries with complete transparency, security, and fairness.
-contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
+contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /**
      *
      * STATE
@@ -47,16 +49,12 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     address public entryToken;
     /// @dev Array of token gates required for all participants to purchase entries.
     TokenGate[] public tokenGates;
+    /// @dev Maps a user address to whether refund was made.
+    mapping(address => bool) public userRefund;
     /// @dev Extra recipient to share the pooled funds.
     ExtraRecipient public extraRecipient;
-    /// @dev Total number of entries acquired
-    uint256 public entries;
     /// @dev Total pooled funds from entries acquisition
     uint256 public pool;
-    /// @dev Maps an entry number to the owner address
-    mapping(uint256 => address) public entriesMap; /* entry number */ /* user address */
-    /// @dev Maps a user address to the total amount of entries owned
-    mapping(address => uint256) public userEntriesMap; /* user address */ /* number of entries */
     /// @dev Whether the raffle is settled or not
     bool public settled;
     /// @dev Whether the prizes were refunded when criteria did not meet.
@@ -90,7 +88,6 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
      * INITIALIZER
      *
      */
-
     //// @inheritdoc IRaffl
     function initialize(
         address _entryToken,
@@ -148,7 +145,7 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
 
     /// @inheritdoc IRaffl
     function criteriaMet() external view override returns (bool) {
-        return entries >= minEntries;
+        return totalEntries() >= minEntries;
     }
 
     /// @inheritdoc IRaffl
@@ -185,10 +182,14 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /// @inheritdoc IRaffl
     function refundEntries(address user) external override nonReentrant {
         if (gameStatus != GameStatus.FailedDraw) revert Errors.RefundsOnlyAllowedOnFailedDraw();
-        if (userEntriesMap[user] == 0) revert Errors.UserWithoutEntries();
+
+        uint256 userEntries = balanceOf(user);
+        if (userEntries == 0) revert Errors.UserWithoutEntries();
         if (entryPrice == 0) revert Errors.WithoutRefunds();
-        uint256 userEntries = userEntriesMap[user];
-        userEntriesMap[user] = 0;
+        if (userRefund[user]) revert Errors.UserAlreadyRefunded();
+
+        userRefund[user] = true;
+
         uint256 value = entryPrice * userEntries;
         if (entryToken != address(0)) {
             TokenLib.safeTransfer(entryToken, user, value);
@@ -299,19 +300,8 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
         // Increments the pool value
         pool += value;
 
-        // Assigns the entry index to the user
-        for (uint256 i = 0; i < quantity;) {
-            entriesMap[entries + i] = msg.sender;
-
-            unchecked {
-                ++i;
-            }
-        }
-        // Increments the total number of acquired entries for the raffle
-        entries += quantity;
-
-        // Increments the total number of acquired entries for the user
-        userEntriesMap[msg.sender] += quantity;
+        // Mints entries for the user
+        _mint(msg.sender, quantity);
 
         // Emits the `EntriesBought` event
         emit EntriesBought(msg.sender, quantity, value);
@@ -320,15 +310,10 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /// @dev Internal function to handle the purchase of free entries with entry price equal to 0.
     function _purchaseFreeEntry() private {
         // Allow up to one free entry per user
-        if (userEntriesMap[msg.sender] == 1) revert Errors.MaxEntriesReached();
-        // Assigns the entry index to the user
-        entriesMap[entries] = msg.sender;
+        if (balanceOf(msg.sender) == 1) revert Errors.MaxEntriesReached();
 
-        // Increments the total number of acquired entries for the raffle
-        ++entries;
-
-        // Increments the total number of acquired entries for the user
-        ++userEntriesMap[msg.sender];
+        // Mints a single entry for the user
+        _mint(msg.sender, 1);
 
         // Emits the `EntriesBought` event with zero `value`
         emit EntriesBought(msg.sender, 1, 0);
@@ -365,27 +350,28 @@ contract Raffl is ReentrancyGuardUpgradeable, IRaffl {
     /// @inheritdoc IRaffl
     function setSuccessCriteria(uint256 requestId) external override onlyFactory {
         gameStatus = GameStatus.DrawStarted;
-        emit DeadlineSuccessCriteria(requestId, entries, minEntries);
+        emit DeadlineSuccessCriteria(requestId, totalEntries(), minEntries);
         settled = true;
     }
 
     /// @inheritdoc IRaffl
     function setFailedCriteria() external override onlyFactory {
         gameStatus = GameStatus.FailedDraw;
-        emit DeadlineFailedCriteria(entries, minEntries);
+        emit DeadlineFailedCriteria(totalEntries(), minEntries);
         settled = true;
     }
 
     /// @inheritdoc IRaffl
     function disperseRewards(uint256 requestId, uint256 randomNumber) external override onlyFactory nonReentrant {
-        uint256 winnerEntry = randomNumber % entries;
-        address winnerUser = entriesMap[winnerEntry];
+        uint256 totalEntries_ = totalEntries();
+        uint256 winnerEntry = randomNumber % totalEntries_;
+        address winnerUser = ownerOf(winnerEntry);
 
         _transferPrizes(winnerUser);
         _transferPool();
 
         gameStatus = GameStatus.SuccessDraw;
 
-        emit DrawSuccess(requestId, winnerEntry, winnerUser, entries);
+        emit DrawSuccess(requestId, winnerEntry, winnerUser, totalEntries_);
     }
 }
