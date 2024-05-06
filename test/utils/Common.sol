@@ -13,40 +13,40 @@ import { VRFCoordinatorV2PlusMock } from "../mocks/VRFCoordinatorV2PlusMock.sol"
 
 abstract contract Common is Test {
     // Addresses
-    address public admin = address(10);
-    address public feeCollector = address(11);
-    address public raffleCreator = address(12);
-    address public userA = address(13);
-    address public userB = address(14);
-    address public userC = address(15);
-    address public userD = address(16);
-    address public externalUser = address(17);
-    address public attacker = address(18);
-    address public userExtraRecipient = address(19);
+    address internal admin = address(10);
+    address internal feeCollector = address(11);
+    address internal raffleCreator = address(12);
+    address internal userA = address(13);
+    address internal userB = address(14);
+    address internal userC = address(15);
+    address internal userD = address(16);
+    address internal externalUser = address(17);
+    address internal attacker = address(18);
+    address internal userExtraRecipient = address(19);
 
     // Contracts
-    VRFCoordinatorV2PlusMock public vrfCoordinator;
-    Raffl public implementation;
-    RafflFactory public rafflFactory;
-    ERC721Mock public testERC721;
-    ERC20Mock public testERC20;
+    VRFCoordinatorV2PlusMock internal vrfCoordinator;
+    Raffl internal implementation;
+    RafflFactory internal rafflFactory;
+    ERC721Mock internal testERC721;
+    ERC20Mock internal testERC20;
 
     // Test states
-    IRaffl.ExtraRecipient public extraRecipient;
-    IRaffl.TokenGate[] public tokenGates;
-    IRaffl.Prize[] public prizes;
-    uint256 public ERC20_AMOUNT = 50 ether;
-    uint256 public ERC721_TOKEN_ID = 0;
-    uint256 public ENTRY_PRICE = 2 ether;
-    uint256 public MIN_ENTRIES = 10;
-    uint256 public DEADLINE_FROM_NOW = 86_400;
-    bytes public CHECK_DATA = abi.encode(0, 500);
+    IRaffl.ExtraRecipient internal extraRecipient;
+    IRaffl.TokenGate[] internal tokenGates;
+    IRaffl.Prize[] internal prizes;
+    uint256 internal ERC20_AMOUNT = 50 ether;
+    uint256 internal ERC721_TOKEN_ID = 0;
+    uint256 internal ENTRY_PRICE = 2 ether;
+    uint256 internal MIN_ENTRIES = 10;
+    uint256 internal DEADLINE_FROM_NOW = 86_400;
+    bytes internal CHECK_DATA = abi.encode(0, 500);
 
     // Network configs
-    uint64 public creationFeeValue = 0 ether;
-    uint64 public poolFeePercentage = 0.05 ether;
-    bytes32 public chainlinkKeyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
-    uint256 public chainlinkSubscriptionId = 420;
+    uint64 internal creationFeeValue = 0 ether;
+    uint64 internal poolFeePercentage = 0.05 ether;
+    bytes32 internal chainlinkKeyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    uint256 internal chainlinkSubscriptionId = 420;
 
     constructor() {
         // Instantiate Chainlink VRF Coordinator V2 Mock

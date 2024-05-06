@@ -62,6 +62,9 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @dev Status of the Raffl game
     GameStatus public gameStatus;
 
+    /// @dev Maximum number of entries a single address can hold.
+    uint256 internal constant MAX_ENTRIES_PER_USER = 10 ether;
+    
     /// @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
     uint256 internal constant ONE = 1 ether;
 
@@ -286,6 +289,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @param quantity The quantity of entries to purchase.
     function _purchaseEntry(uint256 quantity) private {
         if (quantity == 0) revert Errors.EntryQuantityRequired();
+        if (balanceOf(msg.sender) >= MAX_ENTRIES_PER_USER) revert Errors.MaxEntriesReached();
         uint256 value = quantity * entryPrice;
         // Check if entryToken is a non-zero address, meaning ERC-20 is used for purchase
         if (entryToken != address(0)) {
