@@ -42,7 +42,4 @@ library Errors {
 
     /// @notice Thrown if token gate restriction is violated.
     error TokenGateRestriction();
-
-    /// @notice Thrown if fetching token balance of a user fails.
-    error FetchTokenBalanceFail();
 }

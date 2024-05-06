@@ -37,15 +37,6 @@ library Errors {
     /// @notice Thrown if the active raffle index is out of bounds.
     error ActiveRaffleIndexOutOfBounds();
 
-    /// @notice Thrown if the proposal is not ready.
-    error ProposalNotReady();
-
-    /// @notice Thrown if the fee is already set.
-    error FeeAlreadySet();
-
-    /// @notice Thrown if the given item is not a raffle.
-    error NotARaffle();
-
     /// @notice Error to indicate that the creation fee is insufficient.
     error InsufficientCreationFee();
 
