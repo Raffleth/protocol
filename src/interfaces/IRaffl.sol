@@ -162,7 +162,7 @@ interface IRaffl {
 
     /// @notice Refund prizes to the creator.
     /// @dev Invokable when the draw was not made because the min entries were not enought
-    function refundPrizes() external payable;
+    function refundPrizes() external;
 
     /// @notice Transfers the `prizes` to the provably fair and verifiable entrant, sets the `GameStatus` as
     /// `SuccessDraw` and emits event `DrawSuccess`

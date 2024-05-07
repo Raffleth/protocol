@@ -205,7 +205,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     }
 
     /// @inheritdoc IRaffl
-    function refundPrizes() external payable override nonReentrant {
+    function refundPrizes() external override nonReentrant {
         if (gameStatus != GameStatus.FailedDraw) revert Errors.RefundsOnlyAllowedOnFailedDraw();
         if (creator != msg.sender) revert Errors.OnlyCreatorAllowed();
         if (prizesRefunded) revert Errors.PrizesAlreadyRefunded();
