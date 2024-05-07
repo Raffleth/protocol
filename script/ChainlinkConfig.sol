@@ -31,7 +31,11 @@ contract ChainlinkConfig {
     }
 
     function getAnvilEthConfig() internal returns (NetworkConfig memory anvilNetworkConfig) {
-        address vrfCoordinator = address(new VRFCoordinatorV2PlusMock(0.01 ether, 1_000_000_000));
+        address vrfCoordinator;
+
+        if (block.chainid == 31_337) {
+            vrfCoordinator = address(new VRFCoordinatorV2PlusMock(0.01 ether, 1_000_000_000));
+        }
 
         anvilNetworkConfig = NetworkConfig({
             subscriptionId: 0,
