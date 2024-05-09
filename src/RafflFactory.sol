@@ -200,6 +200,11 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         emit RaffleCreated(raffle);
     }
 
+    /// @notice Exposes the `_raffles` mapping
+    function isRaffle(address raffle) public view returns (bool) {
+        return _raffles[raffle];
+    }
+
     /// @notice Exposes the `ActiveRaffle`s
     function activeRaffles() public view returns (ActiveRaffle[] memory) {
         return _activeRaffles;
