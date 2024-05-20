@@ -1,7 +1,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-<img src="https://docs.raffl.xyz/cover.png" alt="Logo" width="360">
+<img src="https://raffl.xyz/og.png" alt="Logo" width="360">
 <h3 align="center">Raffl Contracts</h3>
 </div>
 
