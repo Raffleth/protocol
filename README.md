@@ -1,8 +1,5 @@
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-<img src="https://raffl.xyz/og.png" alt="Logo" width="360">
-<h3 align="center">Raffl Contracts</h3>
+<div align="center" style="border-radius:32px; overflow:hidden;">
+<img src="https://raffl.xyz/og.png" alt="Logo" width="60%">
 </div>
 
 # Raffl Protocol
