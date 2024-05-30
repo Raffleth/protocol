@@ -265,7 +265,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         performData = abi.encode(raffle, index);
     }
 
-    /// @notice Permisionless write method usually called by the Chainlink Automation Nodes.
+    /// @notice Permissionless write method usually called by the Chainlink Automation Nodes.
     /// @dev Either starts the draw for a raffle or cancels the raffle if criteria is not met.
     /// @param performData Encoded binary data which contains the raffle address and index of the `_activeRaffles`
     function performUpkeep(bytes calldata performData) external override {
