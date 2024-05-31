@@ -17,7 +17,7 @@ contract ChainlinkConfig {
         chainIdToNetworkConfig[42_161] = getArbitrumConfig();
         chainIdToNetworkConfig[31_337] = getAnvilEthConfig();
         chainIdToNetworkConfig[11_155_111] = getSepoliaEthConfig();
-        chainIdToNetworkConfig[80002] = getPolygonAmoyConfig();
+        chainIdToNetworkConfig[80_002] = getPolygonAmoyConfig();
 
         activeNetworkConfig = chainIdToNetworkConfig[block.chainid];
 
