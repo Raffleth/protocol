@@ -39,6 +39,7 @@
   sepolia = { key = "${API_KEY_ETHERSCAN}" }
   optimism_sepolia = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
   base_sepolia = { key = "${API_KEY_BASESCAN}" }
+  polygon_amoy = { key = "${API_KEY_POLYGONSCAN}" }
 
 [doc]
   ignore = ["**/*.t.sol"]
@@ -68,3 +69,4 @@
   sepolia = "https://sepolia.infura.io/v3/${API_KEY_INFURA}"
   base_sepolia = "https://sepolia.base.org"
   optimism_sepolia = "https://optimism-sepolia.infura.io/v3/${API_KEY_INFURA}"
+  polygon_amoy = "https://polygon-amoy.infura.io/v3/${API_KEY_INFURA}"

@@ -17,6 +17,7 @@ contract ChainlinkConfig {
         chainIdToNetworkConfig[42_161] = getArbitrumConfig();
         chainIdToNetworkConfig[31_337] = getAnvilEthConfig();
         chainIdToNetworkConfig[11_155_111] = getSepoliaEthConfig();
+        chainIdToNetworkConfig[80002] = getPolygonAmoyConfig();
 
         activeNetworkConfig = chainIdToNetworkConfig[block.chainid];
 
@@ -49,6 +50,16 @@ contract ChainlinkConfig {
             vrfCoordinator: 0xec0Ed46f36576541C75739E915ADbCb3DE24bD77,
             // 500 gwei key hash
             keyHash: 0x719ed7d7664abc3001c18aac8130a2265e1e70b7e036ae20f3ca8b92b3154d86
+        });
+    }
+
+    function getPolygonAmoyConfig() internal pure returns (NetworkConfig memory networkConfig) {
+        networkConfig = NetworkConfig({
+            //  solhint-disable-next-line max-line-length
+            subscriptionId: 66_432_537_676_828_968_029_875_447_158_564_913_588_950_144_180_196_515_935_983_839_759_248_927_220_038,
+            vrfCoordinator: 0x343300b5d84D444B2ADc9116FEF1bED02BE49Cf2,
+            // 500 gwei key hash
+            keyHash: 0x816bedba8a50b294e5cbd47842baf240c2385f2eaf719edbd4f250a137a8c899
         });
     }
 
