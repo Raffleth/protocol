@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
 // Raffl Protocol (last updated v1.0.0) (RafflFactory.sol)
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.27;
 
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import { VRFConsumerBaseV2Plus } from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
@@ -36,6 +36,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
     /// @dev Callback gas limit for the Chainlink VRF
     uint32 callbackGasLimit = 500_000;
+
+    /// @dev Whether to pay Chainlink fees with native token or LINK
+    bool nativePayment = true;
 
     /// @dev Number of requests confirmations for the Chainlink VRF
     uint16 requestConfirmations = 3;
@@ -215,11 +218,13 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @param _keyHash The gas lane to use, which specifies the maximum gas price to bump to
     /// @param _callbackGasLimit Callback gas limit for the Chainlink VRF
     /// @param _requestConfirmations Number of requests confirmations for the Chainlink VRF
+    /// @param _nativePayment Whether to pay Chainlink fees with native token or LINK.
     function handleSubscription(
         uint64 _subscriptionId,
         bytes32 _keyHash,
         uint32 _callbackGasLimit,
-        uint16 _requestConfirmations
+        uint16 _requestConfirmations,
+        bool _nativePayment
     )
         external
         onlyOwner
@@ -228,6 +233,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         keyHash = _keyHash;
         callbackGasLimit = _callbackGasLimit;
         requestConfirmations = _requestConfirmations;
+        nativePayment = _nativePayment;
     }
 
     /**
@@ -283,7 +289,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
                     requestConfirmations: requestConfirmations,
                     callbackGasLimit: callbackGasLimit,
                     numWords: 1,
-                    extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({ nativePayment: false }))
+                    extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({ nativePayment: nativePayment }))
                 })
             );
             IRaffl(raffle).setSuccessCriteria(requestId);
@@ -297,7 +303,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @notice Method called by the Chainlink VRF Coordinator
     /// @param requestId Id of the VRF request
     /// @param randomWords Provably fair and verifiable array of random words
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         IRaffl(_requestIds[requestId]).disperseRewards(requestId, randomWords[0]);
     }
 
