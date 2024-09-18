@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.27;
 
 import { VRFCoordinatorV2PlusMock } from "../test/mocks/VRFCoordinatorV2PlusMock.sol";
 
@@ -14,6 +14,7 @@ contract ChainlinkConfig {
 
     function getActiveNetworkChainlinkConfig() public returns (NetworkConfig memory activeNetworkConfig) {
         chainIdToNetworkConfig[137] = getPolygonConfig();
+        chainIdToNetworkConfig[8453] = getBaseConfig();
         chainIdToNetworkConfig[42_161] = getArbitrumConfig();
         chainIdToNetworkConfig[31_337] = getAnvilEthConfig();
         chainIdToNetworkConfig[11_155_111] = getSepoliaEthConfig();
@@ -50,6 +51,16 @@ contract ChainlinkConfig {
             vrfCoordinator: 0xec0Ed46f36576541C75739E915ADbCb3DE24bD77,
             // 500 gwei key hash
             keyHash: 0x719ed7d7664abc3001c18aac8130a2265e1e70b7e036ae20f3ca8b92b3154d86
+        });
+    }
+
+    function getBaseConfig() internal pure returns (NetworkConfig memory networkConfig) {
+        networkConfig = NetworkConfig({
+            //  solhint-disable-next-line max-line-length
+            subscriptionId: 81_329_362_586_917_986_816_753_857_554_443_823_328_068_912_955_405_746_084_377_039_695_378_029_689_412,
+            vrfCoordinator: 0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634,
+            // 30 gwei Key Hash
+            keyHash: 0xdc2f87677b01473c763cb0aee938ed3341512f6057324a584e5944e786144d70
         });
     }
 

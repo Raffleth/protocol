@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
 // Raffl Protocol (last updated v1.0.0) (abstracts/FactoryFeeManager.sol)
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.27;
 
 import { Errors } from "../libraries/RafflFactoryErrors.sol";
 import { IFeeManager } from "../interfaces/IFeeManager.sol";
