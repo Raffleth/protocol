@@ -14,7 +14,7 @@ contract ChainlinkConfig {
 
     function getActiveNetworkChainlinkConfig() public returns (NetworkConfig memory activeNetworkConfig) {
         chainIdToNetworkConfig[137] = getPolygonConfig();
-        chainIdToNetworkConfig[8_453] = getBaseConfig();
+        chainIdToNetworkConfig[8453] = getBaseConfig();
         chainIdToNetworkConfig[42_161] = getArbitrumConfig();
         chainIdToNetworkConfig[31_337] = getAnvilEthConfig();
         chainIdToNetworkConfig[11_155_111] = getSepoliaEthConfig();
@@ -57,7 +57,7 @@ contract ChainlinkConfig {
     function getBaseConfig() internal pure returns (NetworkConfig memory networkConfig) {
         networkConfig = NetworkConfig({
             //  solhint-disable-next-line max-line-length
-            subscriptionId: 81329362586917986816753857554443823328068912955405746084377039695378029689412,
+            subscriptionId: 81_329_362_586_917_986_816_753_857_554_443_823_328_068_912_955_405_746_084_377_039_695_378_029_689_412,
             vrfCoordinator: 0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634,
             // 30 gwei Key Hash
             keyHash: 0xdc2f87677b01473c763cb0aee938ed3341512f6057324a584e5944e786144d70
