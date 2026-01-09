@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
 // Raffl Protocol (last updated v1.0.0) (interfaces/IFeeManager.sol)
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.33;
 
 /// @title IFeeManager
 /// @dev Interface that describes the struct and accessor function for the data related to the collection of fees.

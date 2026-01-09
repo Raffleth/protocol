@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
 // Raffl Protocol (last updated v1.0.0) (abstracts/EntriesManager.sol)
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.33;
 
 /**
  * @title EntriesManager
