@@ -82,8 +82,13 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
      *
      */
     modifier onlyFactory() {
-        if (msg.sender != factory) revert Errors.OnlyFactoryAllowed();
+        _onlyFactory();
         _;
+    }
+
+    /// @dev Internal function for onlyFactory modifier
+    function _onlyFactory() internal view {
+        if (msg.sender != factory) revert Errors.OnlyFactoryAllowed();
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -113,6 +118,12 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     {
         __ReentrancyGuard_init();
 
+        // Validate critical inputs
+        if (_creator == address(0)) revert Errors.OnlyCreatorAllowed();
+        if (_extraRecipient.recipient != address(0) && _extraRecipient.sharePercentage > ONE) {
+            revert Errors.InvalidExtraRecipientShare();
+        }
+
         entryToken = _entryToken;
         entryPrice = _entryPrice;
         minEntries = _minEntries;
@@ -121,8 +132,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
         factory = msg.sender;
         manager = IFeeManager(msg.sender);
 
-        uint256 i = 0;
-        for (i; i < _prizes.length;) {
+        uint256 prizesLength = _prizes.length;
+        for (uint256 i = 0; i < prizesLength;) {
             prizes.push(_prizes[i]);
 
             unchecked {
@@ -130,7 +141,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
             }
         }
 
-        for (i = 0; i < _tokenGatesArray.length;) {
+        uint256 tokenGatesLength = _tokenGatesArray.length;
+        for (uint256 i = 0; i < tokenGatesLength;) {
             tokenGates.push(_tokenGatesArray[i]);
 
             unchecked {
@@ -178,7 +190,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
     /// @inheritdoc IRaffl
     function buyEntries(uint256 quantity) external payable override nonReentrant {
-        if (block.timestamp > deadline) revert Errors.EntriesPurchaseClosed();
+        if (block.timestamp >= deadline) revert Errors.EntriesPurchaseClosed();
         if (totalEntries() >= MAX_TOTAL_ENTRIES) revert Errors.MaxTotalEntriesReached();
 
         _ensureTokenGating(msg.sender);
@@ -205,7 +217,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
         if (entryToken != address(0)) {
             TokenLib.safeTransfer(entryToken, user, value);
         } else {
-            payable(user).transfer(value);
+            (bool success,) = payable(user).call{ value: value }("");
+            if (!success) revert Errors.ETHTransferFailed();
         }
         emit EntriesRefunded(user, userEntries, value);
     }
@@ -230,8 +243,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @dev Transfers the prizes to the specified user.
     /// @param user The address of the user who will receive the prizes.
     function _transferPrizes(address user) private {
-        uint256 i = prizes.length;
-        for (i; i != 0;) {
+        uint256 prizesLength = prizes.length;
+        for (uint256 i = prizesLength; i != 0;) {
             unchecked {
                 --i;
             }
@@ -273,6 +286,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @dev Calculates the extra recipient share amount
     function _calculateExtraRecipientAmount(uint256 balance) private view returns (uint256) {
         if (extraRecipient.recipient == address(0) || extraRecipient.sharePercentage == 0) return 0;
+        // Extra validation to prevent underflow in case of misconfiguration
+        if (extraRecipient.sharePercentage > ONE) revert Errors.InvalidExtraRecipientShare();
         return (balance * extraRecipient.sharePercentage) / ONE;
     }
 
@@ -288,7 +303,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
         if (entryToken != address(0)) {
             _transferTokens(feeCollector, fee, extraRecipientAmount, creatorAmount);
         } else {
-            _transferETH(feeCollector, fee, extraRecipientAmount, creatorAmount);
+            _transferEth(feeCollector, fee, extraRecipientAmount, creatorAmount);
         }
     }
 
@@ -300,17 +315,33 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     }
 
     /// @dev Transfers ETH to recipients
-    function _transferETH(address feeCollector, uint256 fee, uint256 extraAmount, uint256 creatorAmount) private {
-        if (fee > 0) payable(feeCollector).transfer(fee);
-        if (extraAmount > 0) payable(extraRecipient.recipient).transfer(extraAmount);
-        if (creatorAmount > 0) payable(creator).transfer(creatorAmount);
+    function _transferEth(address feeCollector, uint256 fee, uint256 extraAmount, uint256 creatorAmount) private {
+        bool success;
+        if (fee > 0) {
+            (success,) = payable(feeCollector).call{ value: fee }("");
+            if (!success) revert Errors.ETHTransferFailed();
+        }
+        if (extraAmount > 0) {
+            (success,) = payable(extraRecipient.recipient).call{ value: extraAmount }("");
+            if (!success) revert Errors.ETHTransferFailed();
+        }
+        if (creatorAmount > 0) {
+            (success,) = payable(creator).call{ value: creatorAmount }("");
+            if (!success) revert Errors.ETHTransferFailed();
+        }
     }
 
     /// @dev Internal function to handle the purchase of entries with entry price greater than 0.
     /// @param quantity The quantity of entries to purchase.
     function _purchaseEntry(uint256 quantity) private {
         if (quantity == 0) revert Errors.EntryQuantityRequired();
-        if (balanceOf(msg.sender) >= MAX_ENTRIES_PER_USER) revert Errors.MaxUserEntriesReached();
+
+        uint256 currentBalance = balanceOf(msg.sender);
+        // Check both current balance and after purchase to prevent overflow
+        if (currentBalance >= MAX_ENTRIES_PER_USER || currentBalance + quantity > MAX_ENTRIES_PER_USER) {
+            revert Errors.MaxUserEntriesReached();
+        }
+
         uint256 value = quantity * entryPrice;
         // Check if entryToken is a non-zero address, meaning ERC-20 is used for purchase
         if (entryToken != address(0)) {
@@ -347,8 +378,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     /// @notice Ensures that the user has all the requirements from the `tokenGates` array
     /// @param user Address of the user
     function _ensureTokenGating(address user) private view {
-        uint256 i = tokenGates.length;
-        for (i; i != 0;) {
+        uint256 tokenGatesLength = tokenGates.length;
+        for (uint256 i = tokenGatesLength; i != 0;) {
             unchecked {
                 --i;
             }

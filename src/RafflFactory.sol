@@ -187,6 +187,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         returns (address raffle)
     {
         if (block.timestamp >= deadline) revert Errors.DeadlineIsNotFuture();
+        if (prizes.length == 0) revert Errors.NoPrizesProvided();
 
         address impl = implementation;
         bytes32 salt = _salt;
@@ -209,8 +210,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         IRaffl(raffle)
             .initialize(entryToken, entryPrice, minEntries, deadline, msg.sender, prizes, tokenGates, extraRecipient);
 
-        uint256 i = prizes.length;
-        for (i; i != 0;) {
+        uint256 prizesLength = prizes.length;
+        for (uint256 i = prizesLength; i != 0;) {
             unchecked {
                 --i;
             }
@@ -218,14 +219,17 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
             if (prizes[i].assetType == IRaffl.AssetType.ERC20 && prizes[i].value == 0) {
                 revert Errors.ERC20PrizeAmountIsZero();
             }
-            (bool success,) = prizes[i].asset
+            (bool success, bytes memory data) = prizes[i].asset
                 .call(
                     abi.encodeWithSignature(
                         "transferFrom(address,address,uint256)", msg.sender, raffle, prizes[i].value
                     )
                 );
 
-            if (!success) revert Errors.UnsuccessfulTransferFromPrize();
+            // Check success and decode return value properly
+            if (!success || (data.length != 0 && !abi.decode(data, (bool)))) {
+                revert Errors.UnsuccessfulTransferFromPrize();
+            }
         }
 
         _raffles[raffle] = true;

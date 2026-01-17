@@ -51,4 +51,7 @@ library Errors {
 
     /// @notice Thrown if trying to retry a VRF request that is not pending.
     error VRFRequestNotPending();
+
+    /// @notice Thrown if raffle has no prizes.
+    error NoPrizesProvided();
 }

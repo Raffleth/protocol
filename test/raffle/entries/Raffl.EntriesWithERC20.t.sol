@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
 import { Errors } from "../../../src/libraries/RafflErrors.sol";
+import { TokenLib } from "../../../src/libraries/TokenLib.sol";
 
 import { Common } from "../../utils/Common.sol";
 import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
@@ -44,7 +45,7 @@ contract RafflEntriesWithERC20Test is Common {
     function test_RevertIf_TransferEntriesFailed() public {
         vm.deal(userA, entryPrice * 5);
 
-        vm.expectRevert(bytes("TFF"));
+        vm.expectRevert(TokenLib.TransferFromFailed.selector);
         vm.prank(userA);
         raffl.buyEntries(5);
     }

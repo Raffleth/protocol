@@ -48,4 +48,10 @@ library Errors {
 
     /// @notice Thrown if winner has not been drawn yet.
     error WinnerNotDrawn();
+
+    /// @notice Thrown if extra recipient share percentage exceeds 100%.
+    error InvalidExtraRecipientShare();
+
+    /// @notice Thrown if ETH transfer fails.
+    error ETHTransferFailed();
 }

@@ -41,10 +41,15 @@ abstract contract FactoryFeeManager is IFactoryFeeManager {
 
     /// @notice Reverts if called by anyone other than the factory fee collector.
     modifier onlyFeeCollector() {
+        _onlyFeeCollector();
+        _;
+    }
+
+    /// @dev Internal function for onlyFeeCollector modifier
+    function _onlyFeeCollector() internal view {
         if (msg.sender != _feeData.feeCollector) {
             revert Errors.NotFeeCollector();
         }
-        _;
     }
 
     /**

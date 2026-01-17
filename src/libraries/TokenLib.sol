@@ -7,6 +7,15 @@ import { IERC20Minimal } from "../interfaces/IERC20Minimal.sol";
 /// @title TokenLib
 /// @dev Library the contains helper methods for retrieving balances and transfering ERC-20 and ERC-721
 library TokenLib {
+    /// @notice Thrown when balanceOf call fails
+    error BalanceOfFailed();
+
+    /// @notice Thrown when transfer call fails
+    error TransferFailed();
+
+    /// @notice Thrown when transferFrom call fails
+    error TransferFromFailed();
+
     /// @notice Retrieves the balance of a specified token for a given user
     /// @dev This function calls the `balanceOf` function on the token contract using the provided selector and decodes
     /// the returned data to retrieve the balance
@@ -16,8 +25,7 @@ library TokenLib {
     function balanceOf(address token, address user) internal view returns (uint256) {
         (bool success, bytes memory data) =
             token.staticcall(abi.encodeWithSelector(IERC20Minimal.balanceOf.selector, user));
-        // Throws an error with revert message "BF" if the staticcall fails or the returned data is less than 32 bytes
-        require(success && data.length >= 32, "BF");
+        if (!success || data.length < 32) revert BalanceOfFailed();
         return abi.decode(data, (uint256));
     }
 
@@ -31,7 +39,7 @@ library TokenLib {
         (bool success, bytes memory data) =
             token.call(abi.encodeWithSelector(IERC20Minimal.transfer.selector, to, value));
         // Check if the `transfer` function call was successful and no error data was returned
-        require(success && (data.length == 0 || abi.decode(data, (bool))), "TF");
+        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFailed();
     }
 
     /// @notice Safely transfers tokens from one address to another using the `transferFrom` function
@@ -45,6 +53,6 @@ library TokenLib {
         (bool success, bytes memory data) =
             token.call(abi.encodeWithSelector(IERC20Minimal.transferFrom.selector, from, to, value));
         // Check if the `transferFrom` function call was successful and no error data was returned
-        require(success && (data.length == 0 || abi.decode(data, (bool))), "TFF");
+        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) revert TransferFromFailed();
     }
 }

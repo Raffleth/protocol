@@ -2,8 +2,6 @@
 pragma solidity ^0.8.33;
 
 import { Raffl } from "../../../src/Raffl.sol";
-import { IFeeManager } from "../../../src/interfaces/IFeeManager.sol";
-import { Errors } from "../../../src/libraries/RafflFactoryErrors.sol";
 import { Errors as RafflErrors } from "../../../src/libraries/RafflErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
