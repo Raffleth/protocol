@@ -12,7 +12,6 @@ interface IFactoryFeeManager is IFeeManager {
      * EVENTS
      *
      */
-
     /// @param feeCollector Address of the new fee collector.
     event FeeCollectorChange(address indexed feeCollector);
 

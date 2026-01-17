@@ -34,16 +34,17 @@ contract RafflInitializeTest is Common {
         assertTrue(gameStatus == IRaffl.GameStatus.Initialized);
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        Raffl(newRaffl).initialize(
-            address(0),
-            ENTRY_PRICE,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW,
-            raffleCreator,
-            prizes,
-            tokenGates,
-            extraRecipient
-        );
+        Raffl(newRaffl)
+            .initialize(
+                address(0),
+                ENTRY_PRICE,
+                MIN_ENTRIES,
+                block.timestamp + DEADLINE_FROM_NOW,
+                raffleCreator,
+                prizes,
+                tokenGates,
+                extraRecipient
+            );
 
         vm.stopPrank();
     }

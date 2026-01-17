@@ -14,14 +14,14 @@ import { IRaffl } from "./interfaces/IRaffl.sol";
 import { IFactoryFeeManager } from "./interfaces/IFactoryFeeManager.sol";
 
 /*
-                                                                       
-  _____            ______ ______ _      
- |  __ \     /\   |  ____|  ____| |     
- | |__) |   /  \  | |__  | |__  | |     
- |  _  /   / /\ \ |  __| |  __| | |     
- | | \ \  / ____ \| |    | |    | |____ 
- |_|  \_\/_/    \_\_|    |_|    |______|                               
-                                                                       
+
+  _____            ______ ______ _
+ |  __ \     /\   |  ____|  ____| |
+ | |__) |   /  \  | |__  | |__  | |
+ |  _  /   / /\ \ |  __| |  __| | |
+ | | \ \  / ____ \| |    | |    | |____
+ |_|  \_\/_/    \_\_|    |_|    |______|
+
  */
 
 /// @title RafflFactory
@@ -49,6 +49,13 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @param raffle Address of the created raffle
     event RaffleCreated(address raffle);
 
+    /// @param raffle Address of the raffle
+    /// @param requestId The VRF request ID
+    event VRFRequestRetried(address indexed raffle, uint256 indexed requestId);
+
+    /// @param raffle Address of the raffle
+    event RaffleEmergencyFailed(address indexed raffle);
+
     /// @notice The address that will be used as a delegate call target for `Raffl`s.
     address public immutable implementation;
 
@@ -60,6 +67,27 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
     /// @dev Maps the VRF `requestId` to the `Raffl`s address
     mapping(uint256 => address) internal _requestIds;
+
+    /// @dev Enum to track the status of VRF requests
+    enum VRFStatus {
+        None, // No request made
+        Pending, // Request made, waiting for response
+        Fulfilled, // Request fulfilled successfully
+        Failed // Request failed or timed out
+    }
+
+    /// @dev Struct to store VRF request information
+    struct VRFRequest {
+        uint256 requestId;
+        uint256 requestTime;
+        VRFStatus status;
+    }
+
+    /// @dev Maps raffle address to its VRF request information
+    mapping(address => VRFRequest) internal _raffleVRFRequests;
+
+    /// @dev Timeout duration for VRF requests (24 hours)
+    uint256 public constant VRF_REQUEST_TIMEOUT = 24 hours;
 
     /// @dev `raffle` the address of the raffle
     /// @dev `deadline` is the timestamp that marks the start time to perform the upkeep effect.
@@ -178,9 +206,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
         _processCreationFee(msg.sender);
 
-        IRaffl(raffle).initialize(
-            entryToken, entryPrice, minEntries, deadline, msg.sender, prizes, tokenGates, extraRecipient
-        );
+        IRaffl(raffle)
+            .initialize(entryToken, entryPrice, minEntries, deadline, msg.sender, prizes, tokenGates, extraRecipient);
 
         uint256 i = prizes.length;
         for (i; i != 0;) {
@@ -191,15 +218,18 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
             if (prizes[i].assetType == IRaffl.AssetType.ERC20 && prizes[i].value == 0) {
                 revert Errors.ERC20PrizeAmountIsZero();
             }
-            (bool success,) = prizes[i].asset.call(
-                abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, raffle, prizes[i].value)
-            );
+            (bool success,) = prizes[i].asset
+                .call(
+                    abi.encodeWithSignature(
+                        "transferFrom(address,address,uint256)", msg.sender, raffle, prizes[i].value
+                    )
+                );
 
             if (!success) revert Errors.UnsuccessfulTransferFromPrize();
         }
 
         _raffles[raffle] = true;
-        _activeRaffles.push(ActiveRaffle(raffle, deadline));
+        _activeRaffles.push(ActiveRaffle({ raffle: raffle, deadline: deadline }));
         emit RaffleCreated(raffle);
     }
 
@@ -211,6 +241,28 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @notice Exposes the `ActiveRaffle`s
     function activeRaffles() public view returns (ActiveRaffle[] memory) {
         return _activeRaffles;
+    }
+
+    /// @notice Gets the VRF request information for a raffle
+    /// @param raffle The address of the raffle
+    /// @return requestId The VRF request ID
+    /// @return requestTime The timestamp when the request was made
+    /// @return status The current status of the VRF request
+    function getVRFRequestInfo(address raffle)
+        public
+        view
+        returns (uint256 requestId, uint256 requestTime, VRFStatus status)
+    {
+        VRFRequest memory vrfRequest = _raffleVRFRequests[raffle];
+        return (vrfRequest.requestId, vrfRequest.requestTime, vrfRequest.status);
+    }
+
+    /// @notice Checks if a VRF request has timed out
+    /// @param raffle The address of the raffle
+    /// @return Whether the VRF request has timed out
+    function hasVRFRequestTimedOut(address raffle) public view returns (bool) {
+        VRFRequest memory vrfRequest = _raffleVRFRequests[raffle];
+        return vrfRequest.status == VRFStatus.Pending && block.timestamp >= vrfRequest.requestTime + VRF_REQUEST_TIMEOUT;
     }
 
     /// @notice Sets the Chainlink VRF subscription settings
@@ -259,27 +311,48 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         address raffle;
         for (uint256 i = 0; i < upperBound - lowerBound + 1; ++i) {
             if (_activeRaffles.length <= lowerBound + i) break;
-            if (_activeRaffles[lowerBound + i].deadline <= block.timestamp) {
+            address currentRaffle = _activeRaffles[lowerBound + i].raffle;
+
+            // Check if raffle needs reward dispersal
+            if (_raffles[currentRaffle] && IRaffl(currentRaffle).shouldDisperseRewards()) {
                 index = lowerBound + i;
-                raffle = _activeRaffles[lowerBound + i].raffle;
+                raffle = currentRaffle;
+                upkeepNeeded = true;
                 break;
             }
-        }
-        if (_raffles[raffle] && !IRaffl(raffle).upkeepPerformed()) {
-            upkeepNeeded = true;
+
+            // Check if raffle deadline passed and upkeep not performed
+            if (_activeRaffles[lowerBound + i].deadline <= block.timestamp) {
+                if (_raffles[currentRaffle] && !IRaffl(currentRaffle).upkeepPerformed()) {
+                    index = lowerBound + i;
+                    raffle = currentRaffle;
+                    upkeepNeeded = true;
+                    break;
+                }
+            }
         }
         performData = abi.encode(raffle, index);
     }
 
     /// @notice Permissionless write method usually called by the Chainlink Automation Nodes.
-    /// @dev Either starts the draw for a raffle or cancels the raffle if criteria is not met.
+    /// @dev Either starts the draw for a raffle, disperses rewards, or cancels the raffle if criteria is not met.
     /// @param performData Encoded binary data which contains the raffle address and index of the `_activeRaffles`
     function performUpkeep(bytes calldata performData) external override {
         (address raffle, uint256 index) = abi.decode(performData, (address, uint256));
         if (_activeRaffles.length <= index) revert Errors.UpkeepConditionNotMet();
         if (_activeRaffles[index].raffle != raffle) revert Errors.UpkeepConditionNotMet();
+
+        // Check if raffle needs reward dispersal
+        if (IRaffl(raffle).shouldDisperseRewards()) {
+            IRaffl(raffle).disperseRewards();
+            _removeRaffleFromActive(raffle);
+            return;
+        }
+
+        // Check if raffle needs draw initiation
         if (_activeRaffles[index].deadline > block.timestamp) revert Errors.UpkeepConditionNotMet();
         if (IRaffl(raffle).upkeepPerformed()) revert Errors.UpkeepConditionNotMet();
+
         bool criteriaMet = IRaffl(raffle).criteriaMet();
         if (criteriaMet) {
             uint256 requestId = s_vrfCoordinator.requestRandomWords(
@@ -289,25 +362,120 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
                     requestConfirmations: requestConfirmations,
                     callbackGasLimit: callbackGasLimit,
                     numWords: 1,
-                    extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({ nativePayment: nativePayment }))
+                    extraArgs: VRFV2PlusClient._argsToBytes(
+                        VRFV2PlusClient.ExtraArgsV1({ nativePayment: nativePayment })
+                    )
                 })
             );
             IRaffl(raffle).setSuccessCriteria(requestId);
             _requestIds[requestId] = raffle;
+
+            // Store VRF request info for tracking and retry capability
+            _raffleVRFRequests[raffle] =
+                VRFRequest({ requestId: requestId, requestTime: block.timestamp, status: VRFStatus.Pending });
+
+            // Do NOT burn the active raffle yet - keep it until rewards dispersed
         } else {
             IRaffl(raffle).setFailedCriteria();
+            _burnActiveRaffle(index);
         }
-        _burnActiveRaffle(index);
     }
 
     /// @notice Method called by the Chainlink VRF Coordinator
     /// @param requestId Id of the VRF request
     /// @param randomWords Provably fair and verifiable array of random words
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
-        IRaffl(_requestIds[requestId]).disperseRewards(requestId, randomWords[0]);
+        address raffle = _requestIds[requestId];
+        if (raffle == address(0)) revert Errors.InvalidVRFRequest();
+
+        // Mark VRF request as fulfilled
+        _raffleVRFRequests[raffle].status = VRFStatus.Fulfilled;
+
+        // Set the winner (low gas operation, unlikely to fail)
+        IRaffl(raffle).setWinner(requestId, randomWords[0]);
+
+        // Note: Raffle stays in active list until rewards are dispersed
+        // This will be handled by checkUpkeep/performUpkeep or manual disperseRewards call
     }
 
-    /// @notice Helper function to remove a raffle from the `_activeRaffles` array
+    /// @notice Manually disperse rewards after winner is drawn
+    /// @dev Permissionless - anyone can call this to help complete the raffle
+    /// @param raffle The address of the raffle to disperse rewards for
+    function disperseRewards(address raffle) external {
+        if (!_raffles[raffle]) revert Errors.InvalidVRFRequest();
+        if (!IRaffl(raffle).shouldDisperseRewards()) revert Errors.UpkeepConditionNotMet();
+
+        IRaffl(raffle).disperseRewards();
+        _removeRaffleFromActive(raffle);
+    }
+
+    /// @notice Retry a failed or stuck VRF request
+    /// @dev Can be called by anyone if the VRF request is in pending state
+    /// @param raffle The address of the raffle to retry
+    function retryVRFRequest(address raffle) external {
+        if (!_raffles[raffle]) revert Errors.InvalidVRFRequest();
+
+        VRFRequest storage vrfRequest = _raffleVRFRequests[raffle];
+        if (vrfRequest.status != VRFStatus.Pending) revert Errors.VRFRequestNotPending();
+
+        // Request new random words
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: keyHash,
+                subId: subscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: 1,
+                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({ nativePayment: nativePayment }))
+            })
+        );
+
+        // Update with new request ID and timestamp
+        _requestIds[requestId] = raffle;
+        vrfRequest.requestId = requestId;
+        vrfRequest.requestTime = block.timestamp;
+
+        emit VRFRequestRetried(raffle, requestId);
+    }
+
+    /// @notice Emergency fallback to mark raffle as failed if VRF is stuck beyond timeout
+    /// @dev Can be called by anyone after VRF_REQUEST_TIMEOUT has passed
+    /// @param raffle The address of the raffle to mark as failed
+    function emergencyFailRaffle(address raffle) external {
+        if (!_raffles[raffle]) revert Errors.InvalidVRFRequest();
+
+        VRFRequest storage vrfRequest = _raffleVRFRequests[raffle];
+        if (vrfRequest.status != VRFStatus.Pending) revert Errors.VRFRequestNotPending();
+        if (block.timestamp <= vrfRequest.requestTime + VRF_REQUEST_TIMEOUT) {
+            revert Errors.VRFRequestNotTimedOut();
+        }
+
+        // Mark as failed
+        vrfRequest.status = VRFStatus.Failed;
+
+        // Set raffle to failed state so users can get refunds
+        IRaffl(raffle).setFailedCriteria();
+
+        // Remove from active raffles
+        _removeRaffleFromActive(raffle);
+
+        emit RaffleEmergencyFailed(raffle);
+    }
+
+    /// @notice Helper function to remove a raffle from the `_activeRaffles` array by address
+    /// @dev Searches for the raffle and removes it
+    /// @param raffle The address of the raffle to remove
+    function _removeRaffleFromActive(address raffle) internal {
+        uint256 length = _activeRaffles.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (_activeRaffles[i].raffle == raffle) {
+                _burnActiveRaffle(i);
+                return;
+            }
+        }
+    }
+
+    /// @notice Helper function to remove a raffle from the `_activeRaffles` array by index
     /// @dev Move the last element to the deleted stop and removes the last element
     /// @param i Element index to remove
     function _burnActiveRaffle(uint256 i) internal {

@@ -42,4 +42,13 @@ library Errors {
 
     /// @notice Error to indicate an unsuccessful transfer of the creation fee.
     error UnsuccessfulCreationFeeTransfer();
+
+    /// @notice Thrown if VRF request does not exist or is invalid.
+    error InvalidVRFRequest();
+
+    /// @notice Thrown if VRF request has not timed out yet.
+    error VRFRequestNotTimedOut();
+
+    /// @notice Thrown if trying to retry a VRF request that is not pending.
+    error VRFRequestNotPending();
 }

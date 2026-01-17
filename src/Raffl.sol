@@ -13,14 +13,14 @@ import { IRaffl } from "./interfaces/IRaffl.sol";
 import { IFeeManager } from "./interfaces/IFeeManager.sol";
 
 /*
-                                                                       
-  _____            ______ ______ _      
- |  __ \     /\   |  ____|  ____| |     
- | |__) |   /  \  | |__  | |__  | |     
- |  _  /   / /\ \ |  __| |  __| | |     
- | | \ \  / ____ \| |    | |    | |____ 
- |_|  \_\/_/    \_\_|    |_|    |______|                               
-                                                                       
+
+  _____            ______ ______ _
+ |  __ \     /\   |  ____|  ____| |
+ | |__) |   /  \  | |__  | |__  | |
+ |  _  /   / /\ \ |  __| |  __| | |
+ | | \ \  / ____ \| |    | |    | |____
+ |_|  \_\/_/    \_\_|    |_|    |______|
+
  */
 
 /// @title Raffl
@@ -61,6 +61,12 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     bool public prizesRefunded;
     /// @dev Status of the Raffl game
     GameStatus public gameStatus;
+    /// @dev The winning entry number
+    uint256 public winningEntry;
+    /// @dev The address of the winner
+    address public winner;
+    /// @dev The request ID from VRF
+    uint256 public requestId;
     /// @dev Maximum number of entries a single address can hold.
     uint64 internal constant MAX_ENTRIES_PER_USER = 2 ** 64 - 1; // type(uint64).max
     /// @dev Maximum total of entries.
@@ -244,47 +250,60 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
         uint256 balance =
             (entryToken != address(0)) ? TokenLib.balanceOf(entryToken, address(this)) : address(this).balance;
 
-        if (balance > 0) {
-            // Get feeData
-            (address feeCollector, uint64 poolFeePercentage) = manager.poolFeeData(creator);
-            uint256 fee = 0;
+        if (balance == 0) return;
 
-            // If fee is present, calculate it once and subtract from balance
-            if (poolFeePercentage != 0) {
-                fee = (balance * poolFeePercentage) / ONE;
-                balance -= fee;
-            }
+        // Calculate fee and extra recipient amounts
+        (address feeCollector, uint64 poolFeePercentage) = manager.poolFeeData(creator);
+        uint256 fee = _calculateFee(balance, poolFeePercentage);
+        balance -= fee;
 
-            // Similar for extraRecipient.sharePercentage
-            uint256 extraRecipientAmount = 0;
-            if (extraRecipient.recipient != address(0) && extraRecipient.sharePercentage > 0) {
-                extraRecipientAmount = (balance * extraRecipient.sharePercentage) / ONE;
-                balance -= extraRecipientAmount;
-            }
+        uint256 extraRecipientAmount = _calculateExtraRecipientAmount(balance);
+        balance -= extraRecipientAmount;
 
-            if (entryToken != address(0)) {
-                // Avoid checking the balance > 0 before each transfer
-                if (fee > 0) {
-                    TokenLib.safeTransfer(entryToken, feeCollector, fee);
-                }
-                if (extraRecipientAmount > 0) {
-                    TokenLib.safeTransfer(entryToken, extraRecipient.recipient, extraRecipientAmount);
-                }
-                if (balance > 0) {
-                    TokenLib.safeTransfer(entryToken, creator, balance);
-                }
-            } else {
-                if (fee > 0) {
-                    payable(feeCollector).transfer(fee);
-                }
-                if (extraRecipientAmount > 0) {
-                    payable(extraRecipient.recipient).transfer(extraRecipientAmount);
-                }
-                if (balance > 0) {
-                    payable(creator).transfer(balance);
-                }
-            }
+        // Distribute funds
+        _distributePoolFunds(feeCollector, fee, extraRecipientAmount, balance);
+    }
+
+    /// @dev Calculates the pool fee amount
+    function _calculateFee(uint256 balance, uint64 poolFeePercentage) private pure returns (uint256) {
+        if (poolFeePercentage == 0) return 0;
+        return (balance * poolFeePercentage) / ONE;
+    }
+
+    /// @dev Calculates the extra recipient share amount
+    function _calculateExtraRecipientAmount(uint256 balance) private view returns (uint256) {
+        if (extraRecipient.recipient == address(0) || extraRecipient.sharePercentage == 0) return 0;
+        return (balance * extraRecipient.sharePercentage) / ONE;
+    }
+
+    /// @dev Distributes pool funds to fee collector, extra recipient, and creator
+    function _distributePoolFunds(
+        address feeCollector,
+        uint256 fee,
+        uint256 extraRecipientAmount,
+        uint256 creatorAmount
+    )
+        private
+    {
+        if (entryToken != address(0)) {
+            _transferTokens(feeCollector, fee, extraRecipientAmount, creatorAmount);
+        } else {
+            _transferETH(feeCollector, fee, extraRecipientAmount, creatorAmount);
         }
+    }
+
+    /// @dev Transfers ERC20 tokens to recipients
+    function _transferTokens(address feeCollector, uint256 fee, uint256 extraAmount, uint256 creatorAmount) private {
+        if (fee > 0) TokenLib.safeTransfer(entryToken, feeCollector, fee);
+        if (extraAmount > 0) TokenLib.safeTransfer(entryToken, extraRecipient.recipient, extraAmount);
+        if (creatorAmount > 0) TokenLib.safeTransfer(entryToken, creator, creatorAmount);
+    }
+
+    /// @dev Transfers ETH to recipients
+    function _transferETH(address feeCollector, uint256 fee, uint256 extraAmount, uint256 creatorAmount) private {
+        if (fee > 0) payable(feeCollector).transfer(fee);
+        if (extraAmount > 0) payable(extraRecipient.recipient).transfer(extraAmount);
+        if (creatorAmount > 0) payable(creator).transfer(creatorAmount);
     }
 
     /// @dev Internal function to handle the purchase of entries with entry price greater than 0.
@@ -368,16 +387,35 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     }
 
     /// @inheritdoc IRaffl
-    function disperseRewards(uint256 requestId, uint256 randomNumber) external override onlyFactory nonReentrant {
-        uint256 totalEntries_ = totalEntries();
-        uint256 winnerEntry = randomNumber % totalEntries_;
-        address winnerUser = ownerOf(winnerEntry);
+    function setWinner(uint256 _requestId, uint256 randomNumber) external override onlyFactory {
+        if (gameStatus != GameStatus.DrawStarted) revert Errors.DrawNotStarted();
 
-        _transferPrizes(winnerUser);
+        uint256 totalEntries_ = totalEntries();
+        uint256 _winningEntry = randomNumber % totalEntries_;
+        address _winner = ownerOf(_winningEntry);
+
+        requestId = _requestId;
+        winningEntry = _winningEntry;
+        winner = _winner;
+        gameStatus = GameStatus.WinnerDrawn;
+
+        emit WinnerDrawn(_requestId, _winningEntry, _winner, totalEntries_);
+    }
+
+    /// @inheritdoc IRaffl
+    function shouldDisperseRewards() external view override returns (bool) {
+        return gameStatus == GameStatus.WinnerDrawn;
+    }
+
+    /// @inheritdoc IRaffl
+    function disperseRewards() external override nonReentrant {
+        if (gameStatus != GameStatus.WinnerDrawn) revert Errors.WinnerNotDrawn();
+
+        _transferPrizes(winner);
         _transferPool();
 
         gameStatus = GameStatus.SuccessDraw;
 
-        emit DrawSuccess(requestId, winnerEntry, winnerUser, totalEntries_);
+        emit RewardsDispersed(winner);
     }
 }

@@ -42,4 +42,10 @@ library Errors {
 
     /// @notice Thrown if token gate restriction is violated.
     error TokenGateRestriction();
+
+    /// @notice Thrown if draw has not started yet.
+    error DrawNotStarted();
+
+    /// @notice Thrown if winner has not been drawn yet.
+    error WinnerNotDrawn();
 }
