@@ -641,12 +641,320 @@ mapping(address => uint256) private _balances;    // user => entry count
 
 ## Key Constants
 
-| Constant              | Value           | Description                   |
-| --------------------- | --------------- | ----------------------------- |
-| `MAX_POOL_FEE`        | 10% (0.1 ether) | Maximum pool fee              |
-| `VRF_REQUEST_TIMEOUT` | 24 hours        | VRF recovery timeout          |
-| `FEE_CHANGE_DELAY`    | 1 hour          | Time before fee changes apply |
-| `ONE`                 | 1 ether         | 100% representation           |
+### Protocol Constants (from source code)
+
+| Constant               | Location                 | Value             | Description                                       |
+| ---------------------- | ------------------------ | ----------------- | ------------------------------------------------- |
+| `MAX_POOL_FEE`         | FactoryFeeManager.sol:19 | `0.1 ether` (10%) | Maximum pool fee percentage                       |
+| `VRF_REQUEST_TIMEOUT`  | RafflFactory.sol:90      | `24 hours`        | Time before VRF can be retried/failed             |
+| `MAX_ENTRIES_PER_USER` | Raffl.sol:71             | `2^64 - 1`        | Max entries per user (paid raffles)               |
+| `MAX_TOTAL_ENTRIES`    | Raffl.sol:73             | `2^256 - 1`       | Max total entries per raffle                      |
+| `ONE`                  | Raffl.sol:75             | `1 ether`         | 100% representation for percentages               |
+| Fee Change Delay       | FactoryFeeManager.sol    | `1 hours`         | Time before scheduled fees take effect            |
+| Min Pool Fee           | FactoryFeeManager.sol:63 | `0`               | Minimum pool fee (returned by `minPoolFee()`)     |
+| Free Entry Max         | Raffl.sol:369            | `1`               | Max entries per user for free raffles (hardcoded) |
+
+### EntriesManager Internal Constants
+
+| Constant                      | Value            | Description                   |
+| ----------------------------- | ---------------- | ----------------------------- |
+| `_BITMASK_ADDRESS_DATA_ENTRY` | `(1 << 64) - 1`  | Mask for entry data           |
+| `_BITPOS_NUMBER_MINTED`       | `64`             | Bit position for minted count |
+| `_BITMASK_ADDRESS`            | `(1 << 160) - 1` | Mask for address extraction   |
+
+### Test Default Values (Common.sol)
+
+| Variable            | Value             | Description                  |
+| ------------------- | ----------------- | ---------------------------- |
+| `ENTRY_PRICE`       | `2 ether`         | Default entry price in tests |
+| `MIN_ENTRIES`       | `10`              | Default minimum entries      |
+| `DEADLINE_FROM_NOW` | `86400` (1 day)   | Default deadline offset      |
+| `ERC20_AMOUNT`      | `50 ether`        | Default ERC20 prize amount   |
+| `poolFeePercentage` | `0.05 ether` (5%) | Default pool fee in tests    |
+
+---
+
+## Token Gating System
+
+Token gating allows raffle creators to restrict participation based on token holdings.
+
+### Supported Token Standards
+
+| Standard | Gate Behavior                                       |
+| -------- | --------------------------------------------------- |
+| ERC20    | User must hold `amount` or more tokens              |
+| ERC721   | User must own `amount` or more NFTs from collection |
+
+### Key Behaviors
+
+```
+GATE VALIDATION RULES:
+
+1. Multiple Gates → All must pass (AND logic)
+2. Check Timing   → Every buyEntries() call
+3. Empty Gates[]  → Open raffle, anyone can participate
+4. amount: 0      → No restriction (0 >= 0 passes)
+```
+
+### Edge Cases
+
+- Token gate works with free entries (price=0)
+- Users can lose eligibility mid-raffle if they transfer gate tokens
+- Same token can appear multiple times; highest requirement applies
+
+---
+
+## Entry System Details
+
+### Free Entries (Entry Price = 0)
+
+| Rule               | Description                         |
+| ------------------ | ----------------------------------- |
+| Max Entries        | 1 entry per user (hard limit)       |
+| Quantity Parameter | Ignored - always results in 1 entry |
+| Pool Impact        | Pool remains at 0                   |
+| Error on Re-entry  | `MaxUserEntriesReached`             |
+
+### Paid Entries
+
+| Rule                 | Description                               |
+| -------------------- | ----------------------------------------- |
+| Max Entries Per User | `2^64 - 1` (uint64 max)                   |
+| Payment              | Must send exactly `entryPrice * quantity` |
+| Min Entry Price      | 1 wei supported                           |
+| Max Entry Price      | No limit (tested: 1000 ether)             |
+
+### Deadline Boundaries
+
+```
+Time < deadline    → Entries ALLOWED
+Time == deadline   → Entries CLOSED
+Time > deadline    → Entries CLOSED
+
+Error: EntriesPurchaseClosed
+```
+
+---
+
+## VRF Edge Cases and Recovery
+
+### Random Number Handling
+
+| Input                             | Behavior                           |
+| --------------------------------- | ---------------------------------- |
+| Random = 0                        | Valid - selects entry 0            |
+| Random = `type(uint256).max`      | Valid - modulo handles safely      |
+| Random = multiple of totalEntries | Selects entry 0                    |
+| Single entry raffle               | Any random → entry 0 (`x % 1 = 0`) |
+
+### VRF Timeout and Recovery
+
+```
+RECOVERY OPTIONS (after 24 hours):
+
+1. retryVRFRequest(raffle)      → Request new VRF, await response
+2. emergencyFailRaffle(raffle)  → Force FailedDraw, enable refunds
+
+Both are permissionless - anyone can trigger
+```
+
+---
+
+## Fee System Architecture
+
+### Fee Hierarchy
+
+```
+LOOKUP ORDER:
+1. Custom fee for user (if enabled) → Use custom value
+2. Global fee                       → Fallback
+```
+
+### Fee Types
+
+| Type         | Description                | Timing             |
+| ------------ | -------------------------- | ------------------ |
+| Creation Fee | Fixed fee to create raffle | Raffle creation    |
+| Pool Fee     | Percentage of entry pool   | On successful draw |
+
+### Fee Scheduling (Time-Locked)
+
+All fee changes require 1-hour delay:
+
+- `scheduleGlobalPoolFee()`
+- `scheduleGlobalCreationFee()`
+- `scheduleCustomPoolFee()`
+- `scheduleCustomCreationFee()`
+- `toggleCustomPoolFee()`
+- `toggleCustomCreationFee()`
+
+---
+
+## Extra Recipient Behavior
+
+### Share Percentage
+
+| Value           | Effect                             |
+| --------------- | ---------------------------------- |
+| 0 (0%)          | Extra recipient receives nothing   |
+| 0.5 ether (50%) | Split 50/50 with creator           |
+| 1 ether (100%)  | Extra recipient gets all           |
+| > 1 ether       | `InvalidExtraRecipientShare` error |
+
+### Distribution Formula
+
+```solidity
+afterFee = pool - poolFee
+extraShare = (afterFee * sharePercentage) / 1 ether
+creatorShare = afterFee - extraShare
+```
+
+### Special Cases
+
+- `recipient = address(0)` → No extra recipient (creator gets all)
+- Contract recipients must have `receive()` or `fallback()`
+
+---
+
+## Prize Requirements
+
+### Initialization Requirements
+
+| Requirement            | Error if Violated        |
+| ---------------------- | ------------------------ |
+| At least 1 prize       | `NoPrizesProvided`       |
+| ERC20 prize amount > 0 | `ERC20PrizeAmountIsZero` |
+| Deadline in future     | `DeadlineIsNotFuture`    |
+
+### Prize Transfer Flow
+
+```
+CREATION:  Creator → Raffle Contract (via Factory)
+SUCCESS:   Raffle Contract → Winner
+FAILED:    Raffle Contract → Creator (via refundPrizes())
+```
+
+### Supported Configurations
+
+- Multiple NFTs from same collection
+- Multiple NFTs from different collections
+- Mixed ERC20 + ERC721 prizes
+- Large prize counts (20+ NFTs tested)
+- Token ID = 0 supported for ERC721
+
+---
+
+## Refund Mechanisms
+
+### Entry Refunds
+
+| Condition                 | Required     |
+| ------------------------- | ------------ |
+| Game status               | `FailedDraw` |
+| User has entries          | Yes          |
+| User not already refunded | Yes          |
+
+```solidity
+// Anyone can trigger refunds for any user
+function refundEntries(address user) external;
+```
+
+### Prize Refunds
+
+- Only creator can call `refundPrizes()`
+- Only available in `FailedDraw` state
+- All prizes returned to creator
+
+---
+
+## Access Control
+
+### Role-Based Permissions
+
+| Role               | Capabilities                                            |
+| ------------------ | ------------------------------------------------------- |
+| **Owner**          | Transfer ownership, set fee collector, VRF subscription |
+| **Fee Collector**  | Schedule/toggle all fee types                           |
+| **Raffle Creator** | Refund prizes (on FailedDraw)                           |
+| **Factory**        | Set winner, set success/failed criteria                 |
+
+### Permissionless Operations
+
+- `buyEntries()` - Anyone (subject to token gates)
+- `refundEntries(user)` - Anyone can trigger
+- `disperseRewards()` - Anyone can trigger
+- `retryVRFRequest()` - Anyone can retry stuck VRF
+- `emergencyFailRaffle()` - Anyone (after timeout)
+
+### Ownership Transfer
+
+Two-step process: `transferOwnership()` → `acceptOwnership()`
+
+---
+
+## Security Measures
+
+### Reentrancy Protection
+
+| Attack Vector          | Protection                           |
+| ---------------------- | ------------------------------------ |
+| Malicious ERC20 prize  | State updated before transfer        |
+| Malicious ERC721 prize | State updated before transfer        |
+| ETH receive callback   | State updated before transfer        |
+| Refund reentrancy      | User marked refunded before transfer |
+
+### State Transition Guards
+
+- `disperseRewards()` only in `WinnerDrawn` state
+- Double dispersal prevented
+- Double refund prevented
+- Double prize refund prevented
+
+---
+
+## Error Reference
+
+### Entry Errors
+
+| Error                         | Cause                          |
+| ----------------------------- | ------------------------------ |
+| `EntriesPurchaseClosed`       | Deadline reached               |
+| `EntriesPurchaseInvalidValue` | Wrong payment amount           |
+| `MaxUserEntriesReached`       | Exceeded entry limit           |
+| `TokenGateRestriction`        | Doesn't meet gate requirements |
+
+### VRF Errors
+
+| Error                   | Cause                            |
+| ----------------------- | -------------------------------- |
+| `VRFRequestNotPending`  | Cannot retry when not pending    |
+| `VRFRequestNotTimedOut` | Cannot emergency fail before 24h |
+| `InvalidVRFRequest`     | No VRF tracking for raffle       |
+
+### Refund Errors
+
+| Error                            | Cause                |
+| -------------------------------- | -------------------- |
+| `RefundsOnlyAllowedOnFailedDraw` | Wrong game state     |
+| `UserWithoutEntries`             | No entries to refund |
+| `UserAlreadyRefunded`            | Already claimed      |
+| `PrizesAlreadyRefunded`          | Already reclaimed    |
+
+### Fee Errors
+
+| Error                     | Cause                  |
+| ------------------------- | ---------------------- |
+| `InsufficientCreationFee` | Not enough ETH         |
+| `FeeOutOfRange`           | Outside min/max bounds |
+| `NotFeeCollector`         | Wrong caller           |
+
+### Prize Errors
+
+| Error                    | Cause              |
+| ------------------------ | ------------------ |
+| `NoPrizesProvided`       | Empty prizes array |
+| `ERC20PrizeAmountIsZero` | Zero amount ERC20  |
+| `DeadlineIsNotFuture`    | Past deadline      |
 
 ---
 
@@ -671,3 +979,79 @@ mapping(address => uint256) private _balances;    // user => entry count
 - `RewardsDispersed(address indexed winner)`
 - `DeadlineSuccessCriteria(uint256 indexed requestId, uint256 entries, uint256 minEntries)`
 - `DeadlineFailedCriteria(uint256 entries, uint256 minEntries)`
+
+---
+
+## Integration Lifecycle Scenarios
+
+### Success Path
+
+```
+Initialized → [buyEntries()] → Deadline Reached →
+DrawStarted (VRF requested) → WinnerDrawn (VRF fulfilled) →
+disperseRewards() → SuccessDraw (COMPLETE)
+```
+
+### Failure Path: Criteria Not Met
+
+```
+Initialized → [Insufficient Entries] → Deadline Reached →
+FailedDraw → refundEntries() / refundPrizes()
+```
+
+### Failure Path: VRF Timeout
+
+```
+Initialized → [buyEntries()] → Deadline Reached →
+DrawStarted → [24h timeout] → emergencyFailRaffle() →
+FailedDraw → refundEntries() / refundPrizes()
+```
+
+### VRF Recovery Path
+
+```
+DrawStarted → [VRF stuck/slow] → retryVRFRequest() →
+[New VRF request] → WinnerDrawn → SuccessDraw
+```
+
+### Concurrent Raffles
+
+- Multiple raffles can run simultaneously
+- Each tracks its own VRF request independently
+- VRF responses correctly routed via request ID mapping
+
+---
+
+## Automation Integration
+
+### checkUpkeep() Returns True When
+
+1. Raffle deadline reached AND upkeep not performed
+2. Winner drawn AND dispersal pending
+
+### performUpkeep() Actions
+
+| Condition                   | Action                       |
+| --------------------------- | ---------------------------- |
+| Deadline + criteria met     | Request VRF, set DrawStarted |
+| Deadline + criteria not met | Set FailedDraw               |
+| Winner drawn                | Trigger disperseRewards()    |
+
+---
+
+## Test Coverage Reference
+
+| Category        | Test Files                                                   |
+| --------------- | ------------------------------------------------------------ |
+| Token Gating    | `Raffl.TokenGating.t.sol`                                    |
+| Entries         | `Raffl.EntriesEdgeCases.t.sol`, `Raffl.FreeEntries.t.sol`    |
+| VRF             | `Raffl.VRFEdgeCases.t.sol`, `RafflFactory.VRFRetry.t.sol`    |
+| Fees            | `Raffl.CustomPoolFee.t.sol`, `Raffl.CustomCreationFee.t.sol` |
+| Access Control  | `RafflFactory.AccessControl.t.sol`                           |
+| Security        | `Raffl.Security.t.sol`                                       |
+| Prizes          | `Raffl.ERC721Prizes.t.sol`                                   |
+| Extra Recipient | `Raffl.ExtraRecipientEdgeCases.t.sol`                        |
+| Refunds         | `Raffl.RefundsWithNativeEntries.t.sol`                       |
+| Integration     | `Raffl.Integration.t.sol`                                    |
+| Initialization  | `Raffl.Initialize.t.sol`                                     |
+| Fuzz Testing    | `Raffl.Fuzz.t.sol`                                           |
