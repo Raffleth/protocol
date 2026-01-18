@@ -343,8 +343,11 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         // Compute the active raffle that needs to be settled
         uint256 index;
         address raffle;
-        for (uint256 i = 0; i < upperBound - lowerBound + 1; ++i) {
-            if (_activeRaffles.length <= lowerBound + i) break;
+        uint256 iterations = upperBound - lowerBound + 1;
+        uint256 activeRafflesLength = _activeRaffles.length;
+        
+        for (uint256 i = 0; i < iterations;) {
+            if (activeRafflesLength <= lowerBound + i) break;
             address currentRaffle = _activeRaffles[lowerBound + i].raffle;
 
             // Check if raffle needs reward dispersal
@@ -363,6 +366,10 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
                     upkeepNeeded = true;
                     break;
                 }
+            }
+            
+            unchecked {
+                ++i;
             }
         }
         performData = abi.encode(raffle, index);

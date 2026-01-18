@@ -230,8 +230,10 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
         _ensureTokenGating(msg.sender);
 
-        if (entryPrice > 0) {
-            _purchaseEntry(quantity);
+        // Cache storage read
+        uint256 _entryPrice = entryPrice;
+        if (_entryPrice > 0) {
+            _purchaseEntry(quantity, _entryPrice);
         } else {
             _purchaseFreeEntry();
         }
@@ -243,14 +245,20 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
         uint256 userEntries = balanceOf(user);
         if (userEntries == 0) revert Errors.UserWithoutEntries();
-        if (entryPrice == 0) revert Errors.WithoutRefunds();
+        
+        // Cache storage reads
+        uint256 _entryPrice = entryPrice;
+        if (_entryPrice == 0) revert Errors.WithoutRefunds();
         if (userRefund[user]) revert Errors.UserAlreadyRefunded();
 
         userRefund[user] = true;
 
-        uint256 value = entryPrice * userEntries;
-        if (entryToken != address(0)) {
-            TokenLib.safeTransfer(entryToken, user, value);
+        uint256 value = _entryPrice * userEntries;
+        
+        // Cache entryToken to avoid multiple storage reads
+        address _entryToken = entryToken;
+        if (_entryToken != address(0)) {
+            TokenLib.safeTransfer(_entryToken, user, value);
         } else {
             (bool success,) = payable(user).call{ value: value }("");
             if (!success) revert Errors.ETHTransferFailed();
@@ -295,8 +303,11 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
     /// @dev Transfers the pool balance to the creator of the raffle, after deducting any fees.
     function _transferPool() private {
+        // Cache entryToken to avoid multiple storage reads
+        address _entryToken = entryToken;
+        
         uint256 balance =
-            (entryToken != address(0)) ? TokenLib.balanceOf(entryToken, address(this)) : address(this).balance;
+            (_entryToken != address(0)) ? TokenLib.balanceOf(_entryToken, address(this)) : address(this).balance;
 
         if (balance == 0) return;
 
@@ -309,7 +320,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
         balance -= extraRecipientAmount;
 
         // Distribute funds
-        _distributePoolFunds(feeCollector, fee, extraRecipientAmount, balance);
+        _distributePoolFunds(_entryToken, feeCollector, fee, extraRecipientAmount, balance);
     }
 
     /// @dev Calculates the pool fee amount
@@ -328,6 +339,7 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
     /// @dev Distributes pool funds to fee collector, extra recipient, and creator
     function _distributePoolFunds(
+        address _entryToken,
         address feeCollector,
         uint256 fee,
         uint256 extraRecipientAmount,
@@ -335,18 +347,18 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     )
         private
     {
-        if (entryToken != address(0)) {
-            _transferTokens(feeCollector, fee, extraRecipientAmount, creatorAmount);
+        if (_entryToken != address(0)) {
+            _transferTokens(_entryToken, feeCollector, fee, extraRecipientAmount, creatorAmount);
         } else {
             _transferEth(feeCollector, fee, extraRecipientAmount, creatorAmount);
         }
     }
 
     /// @dev Transfers ERC20 tokens to recipients
-    function _transferTokens(address feeCollector, uint256 fee, uint256 extraAmount, uint256 creatorAmount) private {
-        if (fee > 0) TokenLib.safeTransfer(entryToken, feeCollector, fee);
-        if (extraAmount > 0) TokenLib.safeTransfer(entryToken, extraRecipient.recipient, extraAmount);
-        if (creatorAmount > 0) TokenLib.safeTransfer(entryToken, creator, creatorAmount);
+    function _transferTokens(address _entryToken, address feeCollector, uint256 fee, uint256 extraAmount, uint256 creatorAmount) private {
+        if (fee > 0) TokenLib.safeTransfer(_entryToken, feeCollector, fee);
+        if (extraAmount > 0) TokenLib.safeTransfer(_entryToken, extraRecipient.recipient, extraAmount);
+        if (creatorAmount > 0) TokenLib.safeTransfer(_entryToken, creator, creatorAmount);
     }
 
     /// @dev Transfers ETH to recipients
@@ -368,7 +380,8 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
 
     /// @dev Internal function to handle the purchase of entries with entry price greater than 0.
     /// @param quantity The quantity of entries to purchase.
-    function _purchaseEntry(uint256 quantity) private {
+    /// @param _entryPrice The cached entry price from storage.
+    function _purchaseEntry(uint256 quantity, uint256 _entryPrice) private {
         if (quantity == 0) revert Errors.EntryQuantityRequired();
 
         uint256 currentBalance = balanceOf(msg.sender);
@@ -377,12 +390,15 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
             revert Errors.MaxUserEntriesReached();
         }
 
-        uint256 value = quantity * entryPrice;
+        uint256 value = quantity * _entryPrice;
+        
+        // Cache entryToken to avoid multiple storage reads
+        address _entryToken = entryToken;
         // Check if entryToken is a non-zero address, meaning ERC-20 is used for purchase
-        if (entryToken != address(0)) {
+        if (_entryToken != address(0)) {
             // Transfer the required amount of entryToken from user to contract
             // Assumes that the ERC-20 token follows the ERC-20 standard
-            TokenLib.safeTransferFrom(entryToken, msg.sender, address(this), value);
+            TokenLib.safeTransferFrom(_entryToken, msg.sender, address(this), value);
         } else {
             // Check that the correct amount of Ether is sent
             if (msg.value != value) revert Errors.EntriesPurchaseInvalidValue();
