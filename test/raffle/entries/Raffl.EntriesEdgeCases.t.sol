@@ -17,35 +17,32 @@ contract RafflEntriesEdgeCasesTest is Common {
         raffl = createNewRaffle(raffleCreator);
         entryPrice = raffl.entryPrice();
     }
-    
+
     /// @dev Helper to create a new raffle with fresh prizes
     function _createNewRaffleWithParams(
         uint256 _entryPrice,
         uint256 _minEntries,
         uint256 _deadline
-    ) internal returns (Raffl) {
+    )
+        internal
+        returns (Raffl)
+    {
         ERC20Mock newToken = new ERC20Mock();
         newToken.mint(raffleCreator, 100 ether);
-        
+
         vm.startPrank(raffleCreator);
         newToken.approve(address(rafflFactory), 100 ether);
-        
+
         IRaffl.Prize[] memory newPrizes = new IRaffl.Prize[](1);
         newPrizes[0] = IRaffl.Prize(address(newToken), IRaffl.AssetType.ERC20, 100 ether);
-        
+
         Raffl newRaffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                _entryPrice,
-                _minEntries,
-                _deadline,
-                newPrizes,
-                tokenGates,
-                extraRecipient
+                address(0), _entryPrice, _minEntries, _deadline, newPrizes, tokenGates, extraRecipient
             )
         );
         vm.stopPrank();
-        
+
         return newRaffl;
     }
 
@@ -128,14 +125,10 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should allow purchasing up to MAX_ENTRIES_PER_USER
     function test_AllowsMaxEntriesPerUser() public {
-        Raffl lowPriceRaffl = _createNewRaffleWithParams(
-            1 wei,
-            1,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl lowPriceRaffl = _createNewRaffleWithParams(1 wei, 1, block.timestamp + DEADLINE_FROM_NOW);
 
         // MAX_ENTRIES_PER_USER is 2^64 - 1, but we'll test with a reasonable large number
-        uint256 largeQuantity = 1000000;
+        uint256 largeQuantity = 1_000_000;
         uint256 value = largeQuantity * 1 wei;
 
         vm.deal(userA, value);
@@ -147,11 +140,7 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should revert when user tries to exceed MAX_ENTRIES_PER_USER
     function test_RevertIf_ExceedMaxEntriesPerUser() public {
-        Raffl freeRaffl = _createNewRaffleWithParams(
-            1 wei,
-            1,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl freeRaffl = _createNewRaffleWithParams(1 wei, 1, block.timestamp + DEADLINE_FROM_NOW);
 
         // First buy a large amount
         uint64 maxEntries = type(uint64).max;
@@ -170,13 +159,9 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should allow multiple users to each have max entries
     function test_MultipleUsersCanHaveLargeEntries() public {
-        Raffl lowPriceRaffl = _createNewRaffleWithParams(
-            1 wei,
-            1,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl lowPriceRaffl = _createNewRaffleWithParams(1 wei, 1, block.timestamp + DEADLINE_FROM_NOW);
 
-        uint256 entriesPerUser = 100000;
+        uint256 entriesPerUser = 100_000;
 
         // Multiple users buy large amounts
         vm.deal(userA, entriesPerUser * 1 wei);
@@ -360,11 +345,7 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should work with minEntries = 1
     function test_RaffleWithMinEntriesOne() public {
-        Raffl singleEntryRaffl = _createNewRaffleWithParams(
-            ENTRY_PRICE,
-            1,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl singleEntryRaffl = _createNewRaffleWithParams(ENTRY_PRICE, 1, block.timestamp + DEADLINE_FROM_NOW);
 
         assertFalse(singleEntryRaffl.criteriaMet());
 
@@ -379,11 +360,7 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should handle very small entry price (1 wei)
     function test_VerySmallEntryPrice() public {
-        Raffl smallPriceRaffl = _createNewRaffleWithParams(
-            1 wei,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl smallPriceRaffl = _createNewRaffleWithParams(1 wei, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW);
 
         uint256 quantity = 100;
         vm.deal(userA, quantity * 1 wei);
@@ -398,11 +375,7 @@ contract RafflEntriesEdgeCasesTest is Common {
     function test_LargeEntryPrice() public {
         uint256 largePrice = 1000 ether;
 
-        Raffl largePriceRaffl = _createNewRaffleWithParams(
-            largePrice,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl largePriceRaffl = _createNewRaffleWithParams(largePrice, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW);
 
         uint256 quantity = 5;
         vm.deal(userA, largePrice * quantity);
@@ -419,11 +392,7 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should allow exactly one free entry per user
     function test_ExactlyOneFreeEntryPerUser() public {
-        Raffl freeRaffl = _createNewRaffleWithParams(
-            0,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl freeRaffl = _createNewRaffleWithParams(0, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW);
 
         vm.prank(userA);
         freeRaffl.buyEntries(1);
@@ -438,11 +407,7 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should ignore quantity parameter for free entries
     function test_FreeEntryIgnoresQuantity() public {
-        Raffl freeRaffl = _createNewRaffleWithParams(
-            0,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl freeRaffl = _createNewRaffleWithParams(0, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW);
 
         // Even with quantity = 100, should only get 1 entry
         vm.prank(userA);
@@ -453,11 +418,7 @@ contract RafflEntriesEdgeCasesTest is Common {
 
     /// @dev Should keep pool at zero for free entries
     function test_FreeEntryPoolRemainsZero() public {
-        Raffl freeRaffl = _createNewRaffleWithParams(
-            0,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW
-        );
+        Raffl freeRaffl = _createNewRaffleWithParams(0, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW);
 
         vm.prank(userA);
         freeRaffl.buyEntries(1);

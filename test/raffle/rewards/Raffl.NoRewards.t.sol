@@ -33,14 +33,11 @@ contract RafflNoRewardsTest is Common {
         IRaffl.Prize[] memory singlePrize = new IRaffl.Prize[](1);
         uint256 tokenId = 9999; // Use a unique token ID
         testERC721.mint(raffleCreator, tokenId);
-        
+
         vm.startPrank(raffleCreator);
         testERC721.approve(address(rafflFactory), tokenId);
-        singlePrize[0] = IRaffl.Prize({
-            asset: address(testERC721),
-            assetType: IRaffl.AssetType.ERC721,
-            value: tokenId
-        });
+        singlePrize[0] =
+            IRaffl.Prize({ asset: address(testERC721), assetType: IRaffl.AssetType.ERC721, value: tokenId });
 
         Raffl raffl = Raffl(
             rafflFactory.createRaffle(

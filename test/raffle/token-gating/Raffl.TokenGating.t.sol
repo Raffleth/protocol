@@ -30,13 +30,7 @@ contract RafflTokenGatingTest is Common {
         vm.prank(raffleCreator);
         return Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                ENTRY_PRICE,
-                MIN_ENTRIES,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                gates,
-                extraRecipient
+                address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW, prizes, gates, extraRecipient
             )
         );
     }

@@ -109,7 +109,7 @@ contract RafflVRFEdgeCasesTest is Common {
 
         // Any random number should result in winner being userA (x % 1 = 0)
         uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = 12345678;
+        randomWords[0] = 12_345_678;
 
         vm.prank(address(vrfCoordinator));
         vrfCoordinator.fulfillRandomWordsWithOverride(requestId, address(rafflFactory), randomWords);
@@ -126,20 +126,20 @@ contract RafflVRFEdgeCasesTest is Common {
     function test_ConcurrentVRFRequests() public {
         // Create first raffle with initial prizes
         raffl = createNewRaffle(raffleCreator);
-        
+
         // Clear prizes array and create fresh prizes for second raffle
         delete prizes;
         deployErc20AndFund(raffleCreator);
         deployErc721AndFund(raffleCreator);
-        
+
         vm.startPrank(raffleCreator);
         testERC20.approve(address(rafflFactory), ERC20_AMOUNT);
         testERC721.approve(address(rafflFactory), ERC721_TOKEN_ID);
         vm.stopPrank();
-        
+
         prizes.push(IRaffl.Prize(address(testERC20), IRaffl.AssetType.ERC20, ERC20_AMOUNT));
         prizes.push(IRaffl.Prize(address(testERC721), IRaffl.AssetType.ERC721, ERC721_TOKEN_ID));
-        
+
         raffl2 = createNewRaffle(raffleCreator);
 
         // Buy entries for both
@@ -191,7 +191,7 @@ contract RafflVRFEdgeCasesTest is Common {
         vrfCoordinator.fulfillRandomWords(requestId, address(rafflFactory));
 
         // Check status updated
-        (, , RafflFactory.VRFStatus newStatus) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (,, RafflFactory.VRFStatus newStatus) = rafflFactory.getVRFRequestInfo(address(raffl));
         assertEq(uint8(newStatus), uint8(RafflFactory.VRFStatus.Fulfilled));
     }
 
@@ -227,7 +227,7 @@ contract RafflVRFEdgeCasesTest is Common {
         vm.warp(raffl.deadline());
         uint256 originalRequestId = performUpkeepOnActiveRaffl(raffl);
 
-        (uint256 firstRequestId, uint256 firstRequestTime, ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 firstRequestId, uint256 firstRequestTime,) = rafflFactory.getVRFRequestInfo(address(raffl));
 
         // Warp forward (but not to timeout)
         vm.warp(block.timestamp + 1 hours);
@@ -257,7 +257,7 @@ contract RafflVRFEdgeCasesTest is Common {
         rafflFactory.retryVRFRequest(address(raffl));
 
         // Get new request ID from logs
-        (uint256 newRequestId, , ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 newRequestId,,) = rafflFactory.getVRFRequestInfo(address(raffl));
 
         // Fulfill with new request ID
         vrfCoordinator.fulfillRandomWords(newRequestId, address(rafflFactory));
@@ -284,7 +284,7 @@ contract RafflVRFEdgeCasesTest is Common {
         assertEq(uint8(raffl.gameStatus()), uint8(IRaffl.GameStatus.FailedDraw));
 
         // VRF status should be Failed
-        (, , RafflFactory.VRFStatus status) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (,, RafflFactory.VRFStatus status) = rafflFactory.getVRFRequestInfo(address(raffl));
         assertEq(uint8(status), uint8(RafflFactory.VRFStatus.Failed));
     }
 
@@ -337,10 +337,10 @@ contract RafflVRFEdgeCasesTest is Common {
 
         // Multiple retries
         rafflFactory.retryVRFRequest(address(raffl));
-        (uint256 secondRequestId, , ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 secondRequestId,,) = rafflFactory.getVRFRequestInfo(address(raffl));
 
         rafflFactory.retryVRFRequest(address(raffl));
-        (uint256 thirdRequestId, , ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 thirdRequestId,,) = rafflFactory.getVRFRequestInfo(address(raffl));
 
         // Fulfill the latest request
         vrfCoordinator.fulfillRandomWords(thirdRequestId, address(rafflFactory));
@@ -379,9 +379,9 @@ contract RafflVRFEdgeCasesTest is Common {
     function test_WinnerSelectionForEachOwner() public {
         // Test random numbers that would select each user
         uint256[3] memory testCases = [
-            uint256(2),  // Entry 2 -> userA
-            uint256(4),  // Entry 4 -> userB
-            uint256(7)   // Entry 7 -> userC
+            uint256(2), // Entry 2 -> userA
+            uint256(4), // Entry 4 -> userB
+            uint256(7) // Entry 7 -> userC
         ];
         address[3] memory expectedWinners = [userA, userB, userC];
 
@@ -389,20 +389,20 @@ contract RafflVRFEdgeCasesTest is Common {
             // Reset prizes array and deploy fresh prizes for each iteration
             delete prizes;
             delete tokenGates;
-            
+
             // Mint fresh ERC721 for each raffle (unique token ID per iteration)
             uint256 freshTokenId = 1000 + i;
             testERC721.mint(raffleCreator, freshTokenId);
             testERC20.mint(raffleCreator, ERC20_AMOUNT);
-            
+
             vm.startPrank(raffleCreator);
             testERC20.approve(address(rafflFactory), ERC20_AMOUNT);
             testERC721.approve(address(rafflFactory), freshTokenId);
             vm.stopPrank();
-            
+
             prizes.push(IRaffl.Prize(address(testERC20), IRaffl.AssetType.ERC20, ERC20_AMOUNT));
             prizes.push(IRaffl.Prize(address(testERC721), IRaffl.AssetType.ERC721, freshTokenId));
-            
+
             raffl = createNewRaffle(raffleCreator);
 
             makeUserBuyEntries(raffl, userA, 3);
@@ -440,7 +440,7 @@ contract RafflVRFEdgeCasesTest is Common {
         assertEq(uint8(raffl.gameStatus()), uint8(IRaffl.GameStatus.FailedDraw));
 
         // No VRF request should exist
-        (uint256 requestId, , RafflFactory.VRFStatus status) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 requestId,, RafflFactory.VRFStatus status) = rafflFactory.getVRFRequestInfo(address(raffl));
         assertEq(requestId, 0);
         assertEq(uint8(status), uint8(RafflFactory.VRFStatus.None));
     }

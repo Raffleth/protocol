@@ -144,13 +144,7 @@ contract RafflFactoryEdgeCasesTest is Common {
         vm.expectRevert(Errors.DeadlineIsNotFuture.selector);
         vm.prank(raffleCreator);
         rafflFactory.createRaffle(
-            address(0),
-            ENTRY_PRICE,
-            MIN_ENTRIES,
-            block.timestamp - 1,
-            prizes,
-            tokenGates,
-            extraRecipient
+            address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp - 1, prizes, tokenGates, extraRecipient
         );
     }
 
@@ -159,13 +153,7 @@ contract RafflFactoryEdgeCasesTest is Common {
         vm.expectRevert(Errors.DeadlineIsNotFuture.selector);
         vm.prank(raffleCreator);
         rafflFactory.createRaffle(
-            address(0),
-            ENTRY_PRICE,
-            MIN_ENTRIES,
-            block.timestamp,
-            prizes,
-            tokenGates,
-            extraRecipient
+            address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp, prizes, tokenGates, extraRecipient
         );
     }
 
@@ -348,7 +336,13 @@ contract RafflFactoryEdgeCasesTest is Common {
             p[0] = IRaffl.Prize(address(token), IRaffl.AssetType.ERC20, 100 ether);
 
             addresses[i] = rafflFactory.createRaffle(
-                address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW + i, p, tokenGates, extraRecipient
+                address(0),
+                ENTRY_PRICE,
+                MIN_ENTRIES,
+                block.timestamp + DEADLINE_FROM_NOW + i,
+                p,
+                tokenGates,
+                extraRecipient
             );
             vm.stopPrank();
         }
@@ -394,12 +388,12 @@ contract RafflFactoryEdgeCasesTest is Common {
         makeUserBuyEntries(raffl, userA, MIN_ENTRIES);
 
         // Before deadline
-        (bool upkeepNeeded, ) = rafflFactory.checkUpkeep(abi.encode(0, 10));
+        (bool upkeepNeeded,) = rafflFactory.checkUpkeep(abi.encode(0, 10));
         assertFalse(upkeepNeeded);
 
         // At deadline
         vm.warp(raffl.deadline());
-        (upkeepNeeded, ) = rafflFactory.checkUpkeep(abi.encode(0, 10));
+        (upkeepNeeded,) = rafflFactory.checkUpkeep(abi.encode(0, 10));
         assertTrue(upkeepNeeded);
     }
 

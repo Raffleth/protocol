@@ -50,7 +50,7 @@ contract RafflFuzzTest is Common {
 
     /// @dev Fuzz test entry purchase quantities
     function testFuzz_EntryQuantities(uint256 quantity) public {
-        quantity = bound(quantity, 1, 10000);
+        quantity = bound(quantity, 1, 10_000);
 
         vm.prank(raffleCreator);
         raffl = Raffl(
@@ -121,13 +121,7 @@ contract RafflFuzzTest is Common {
         vm.prank(raffleCreator);
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                1 wei,
-                minEntries,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                extraRecipient
+                address(0), 1 wei, minEntries, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
             )
         );
 
@@ -145,7 +139,7 @@ contract RafflFuzzTest is Common {
         vm.deal(userB, 1 wei);
         vm.prank(userB);
         raffl.buyEntries{ value: 1 wei }(1);
-        
+
         if (raffl.totalEntries() >= minEntries) {
             assertTrue(raffl.criteriaMet());
         }
@@ -162,13 +156,7 @@ contract RafflFuzzTest is Common {
         vm.prank(raffleCreator);
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                1 wei,
-                1,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                extraRecipient
+                address(0), 1 wei, 1, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
             )
         );
 
@@ -264,13 +252,7 @@ contract RafflFuzzTest is Common {
         vm.prank(raffleCreator);
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                ENTRY_PRICE,
-                MIN_ENTRIES,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                recipient
+                address(0), ENTRY_PRICE, MIN_ENTRIES, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, recipient
             )
         );
 
@@ -339,11 +321,7 @@ contract RafflFuzzTest is Common {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Fuzz test with multiple users buying different quantities
-    function testFuzz_MultipleUserEntries(
-        uint256 userAEntries,
-        uint256 userBEntries,
-        uint256 userCEntries
-    ) public {
+    function testFuzz_MultipleUserEntries(uint256 userAEntries, uint256 userBEntries, uint256 userCEntries) public {
         userAEntries = bound(userAEntries, 1, 100);
         userBEntries = bound(userBEntries, 1, 100);
         userCEntries = bound(userCEntries, 1, 100);
@@ -353,13 +331,7 @@ contract RafflFuzzTest is Common {
         vm.prank(raffleCreator);
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                1 wei,
-                minEntries,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                extraRecipient
+                address(0), 1 wei, minEntries, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
             )
         );
 
@@ -433,15 +405,7 @@ contract RafflFuzzTest is Common {
 
         vm.prank(raffleCreator);
         raffl = Raffl(
-            rafflFactory.createRaffle(
-                address(0),
-                ENTRY_PRICE,
-                1,
-                deadline,
-                prizes,
-                tokenGates,
-                extraRecipient
-            )
+            rafflFactory.createRaffle(address(0), ENTRY_PRICE, 1, deadline, prizes, tokenGates, extraRecipient)
         );
 
         // Warp to just before deadline
@@ -471,17 +435,11 @@ contract RafflFuzzTest is Common {
     function testFuzz_PoolEqualsPayments(uint256 seed) public {
         // Bound seed to prevent overflow when creating user addresses
         seed = bound(seed, 1000, type(uint160).max - 100);
-        
+
         vm.prank(raffleCreator);
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                ENTRY_PRICE,
-                1,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                extraRecipient
+                address(0), ENTRY_PRICE, 1, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
             )
         );
 
@@ -508,17 +466,11 @@ contract RafflFuzzTest is Common {
     function testFuzz_TotalEntriesEqualsBalances(uint256 seed) public {
         // Bound seed to prevent overflow when creating user addresses
         seed = bound(seed, 1000, type(uint160).max - 100);
-        
+
         vm.prank(raffleCreator);
         raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                1 wei,
-                1,
-                block.timestamp + DEADLINE_FROM_NOW,
-                prizes,
-                tokenGates,
-                extraRecipient
+                address(0), 1 wei, 1, block.timestamp + DEADLINE_FROM_NOW, prizes, tokenGates, extraRecipient
             )
         );
 

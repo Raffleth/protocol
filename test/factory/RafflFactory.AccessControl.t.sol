@@ -85,7 +85,7 @@ contract RafflAccessControlTest is Common {
 
     /// @dev Should have correct initial fee collector
     function test_InitialFeeCollector() public {
-        (address collector, ) = rafflFactory.creationFeeData(userA);
+        (address collector,) = rafflFactory.creationFeeData(userA);
         assertEq(collector, feeCollector);
     }
 
@@ -96,7 +96,7 @@ contract RafflAccessControlTest is Common {
         vm.prank(admin);
         rafflFactory.setFeeCollector(newCollector);
 
-        (address collector, ) = rafflFactory.creationFeeData(userA);
+        (address collector,) = rafflFactory.creationFeeData(userA);
         assertEq(collector, newCollector);
     }
 
@@ -171,7 +171,7 @@ contract RafflAccessControlTest is Common {
     /// @dev Should allow fee collector to schedule custom fees
     function test_FeeCollectorCanScheduleCustomFees() public {
         vm.startPrank(feeCollector);
-        
+
         // Custom creation fee
         rafflFactory.scheduleCustomCreationFee(userA, 0.05 ether);
         rafflFactory.toggleCustomCreationFee(userA, true);
@@ -387,7 +387,7 @@ contract RafflAccessControlTest is Common {
         rafflFactory.retryVRFRequest(address(raffl));
 
         // Verify retry happened (request info updated)
-        (, uint256 requestTime, ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (, uint256 requestTime,) = rafflFactory.getVRFRequestInfo(address(raffl));
         assertEq(requestTime, block.timestamp);
     }
 

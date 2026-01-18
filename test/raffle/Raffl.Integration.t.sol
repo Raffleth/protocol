@@ -12,11 +12,10 @@ import { ERC721Mock } from "../mocks/ERC721Mock.sol";
 /// @title Raffl Integration Tests
 /// @notice Comprehensive end-to-end tests covering full protocol lifecycle
 contract RafflIntegrationTest is Common {
-    
     // Test state for reuse
     ERC20Mock prizeToken;
     ERC721Mock prizeNFT;
-    
+
     /*//////////////////////////////////////////////////////////////
                     COMPLETE LIFECYCLE - SUCCESS PATH
     //////////////////////////////////////////////////////////////*/
@@ -61,12 +60,12 @@ contract RafflIntegrationTest is Common {
 
         // === PHASE 3-5: Deadline -> VRF -> Disperse ===
         vm.warp(raffl.deadline());
-        
+
         (bool upkeepNeeded, bytes memory performData) = rafflFactory.checkUpkeep(abi.encode(0, 10));
         assertTrue(upkeepNeeded);
         rafflFactory.performUpkeep(performData);
 
-        (uint256 requestId, , ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 requestId,,) = rafflFactory.getVRFRequestInfo(address(raffl));
         vrfCoordinator.fulfillRandomWords(requestId, address(rafflFactory));
 
         address winner = raffl.winner();
@@ -79,7 +78,7 @@ contract RafflIntegrationTest is Common {
         assertEq(prizeToken.balanceOf(winner), 1000 ether);
         assertEq(prizeNFT.ownerOf(42), winner);
     }
-    
+
     function _buyEntriesForSuccessLifecycle(Raffl raffl) internal {
         address[5] memory participants;
         for (uint256 i = 0; i < 5; i++) {
@@ -197,7 +196,7 @@ contract RafflIntegrationTest is Common {
         rafflFactory.emergencyFailRaffle(address(raffl));
 
         assertEq(uint8(raffl.gameStatus()), uint8(IRaffl.GameStatus.FailedDraw));
-        (, , RafflFactory.VRFStatus status) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (,, RafflFactory.VRFStatus status) = rafflFactory.getVRFRequestInfo(address(raffl));
         assertEq(uint8(status), uint8(RafflFactory.VRFStatus.Failed));
 
         // Users can refund
@@ -219,7 +218,7 @@ contract RafflIntegrationTest is Common {
         // Simulate stuck VRF - retry
         rafflFactory.retryVRFRequest(address(raffl));
 
-        (uint256 newRequestId, , ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 newRequestId,,) = rafflFactory.getVRFRequestInfo(address(raffl));
 
         // New VRF request succeeds
         vrfCoordinator.fulfillRandomWords(newRequestId, address(rafflFactory));
@@ -404,13 +403,7 @@ contract RafflIntegrationTest is Common {
 
         Raffl raffl = Raffl(
             rafflFactory.createRaffle(
-                address(0),
-                1 ether,
-                3,
-                block.timestamp + 1 days,
-                testPrizes,
-                gates,
-                extraRecipient
+                address(0), 1 ether, 3, block.timestamp + 1 days, testPrizes, gates, extraRecipient
             )
         );
         vm.stopPrank();
@@ -534,7 +527,7 @@ contract RafflIntegrationTest is Common {
         rafflFactory.performUpkeep(performData);
 
         // VRF callback
-        (uint256 requestId, , ) = rafflFactory.getVRFRequestInfo(address(raffl));
+        (uint256 requestId,,) = rafflFactory.getVRFRequestInfo(address(raffl));
         vrfCoordinator.fulfillRandomWords(requestId, address(rafflFactory));
 
         // Automation detects dispersal needed
