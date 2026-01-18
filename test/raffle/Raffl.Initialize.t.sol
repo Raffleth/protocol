@@ -58,9 +58,10 @@ contract RafflInitializeTest is Common {
         );
     }
 
-    /// @dev should allow empty prizes
-    function test_AllowsEmptyPrizes() public {
+    /// @dev should not allow empty prizes
+    function test_RevertIf_EmptyPrizes() public {
         vm.prank(raffleCreator);
+        vm.expectRevert(Errors.NoPrizesProvided.selector);
         rafflFactory.createRaffle(
             address(0),
             ENTRY_PRICE,

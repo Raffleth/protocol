@@ -3,49 +3,59 @@ pragma solidity ^0.8.33;
 
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
+import { Errors } from "../../../src/libraries/RafflFactoryErrors.sol";
 
 import { Common } from "../../utils/Common.sol";
 
+/// @dev Tests for raffle prize requirements
 contract RafflNoRewardsTest is Common {
-    Raffl raffl;
-
     function setUp() public virtual {
         fundAndSetPrizes(raffleCreator);
+    }
 
-        // Create the raffle
+    /// @dev should not allow creating a raffle with no prizes
+    function test_RevertWhen_CreatingRaffleWithNoPrizes() public {
         vm.prank(raffleCreator);
-        raffl = Raffl(
+        vm.expectRevert(Errors.NoPrizesProvided.selector);
+        rafflFactory.createRaffle(
+            address(0),
+            ENTRY_PRICE,
+            MIN_ENTRIES,
+            block.timestamp + DEADLINE_FROM_NOW,
+            new IRaffl.Prize[](0),
+            tokenGates,
+            extraRecipient
+        );
+    }
+
+    /// @dev should allow creating a raffle with minimum prizes (1 prize)
+    function test_CanCreateRaffleWithSinglePrize() public {
+        IRaffl.Prize[] memory singlePrize = new IRaffl.Prize[](1);
+        uint256 tokenId = 9999; // Use a unique token ID
+        testERC721.mint(raffleCreator, tokenId);
+        
+        vm.startPrank(raffleCreator);
+        testERC721.approve(address(rafflFactory), tokenId);
+        singlePrize[0] = IRaffl.Prize({
+            asset: address(testERC721),
+            assetType: IRaffl.AssetType.ERC721,
+            value: tokenId
+        });
+
+        Raffl raffl = Raffl(
             rafflFactory.createRaffle(
                 address(0),
                 ENTRY_PRICE,
                 MIN_ENTRIES,
                 block.timestamp + DEADLINE_FROM_NOW,
-                new IRaffl.Prize[](0),
+                singlePrize,
                 tokenGates,
                 extraRecipient
             )
         );
+        vm.stopPrank();
 
-        // Purchase entries
-        makeUserBuyEntries(raffl, userA, MIN_ENTRIES);
-
-        // Forward time to deadline
-        vm.warp(raffl.deadline());
-    }
-
-    /// @dev should transfer prize to winner
-    function test_CanDrawWinnerWithNoRewards() public {
-        // No prizes set.
         IRaffl.Prize[] memory curPrizes = raffl.getPrizes();
-        assertEq(curPrizes.length, 0);
-
-        // Perform upkeep
-        if (!raffl.criteriaMet()) revert("Criteria not met.");
-
-        uint256 requestId = performUpkeepOnActiveRaffl(raffl);
-
-        // FulfillVRF and getWinner
-        address winnerUser = fullfillVRFOnActiveAndEligibleRaffle(requestId, address(rafflFactory));
-        assertEq(winnerUser, userA);
+        assertEq(curPrizes.length, 1);
     }
 }
