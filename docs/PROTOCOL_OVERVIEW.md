@@ -615,6 +615,177 @@ mapping(address => uint256) private _balances;    // user => entry count
 
 ---
 
+## Chainlink Exception Handling
+
+The protocol uses a **two-step process** that separates VRF callback from reward distribution, providing robust
+exception handling for Chainlink interactions.
+
+### Architecture: Two-Step Winner Selection
+
+```
+STEP 1: VRF Request (performUpkeep)
+    │
+    └──► requestRandomWords() ──► Chainlink VRF Coordinator
+                                          │
+                                          ▼
+STEP 2: VRF Callback (fulfillRandomWords) - MINIMAL WORK
+    │   • Only updates storage variables (~50k gas)
+    │   • NO external calls (no transfers)
+    │   • NO loops over prizes/entries
+    │   • Cannot fail due to gas limits
+    │
+    └──► setWinner() stores: requestId, winningEntry, winner, gameStatus
+                                          │
+                                          ▼
+STEP 3: Dispersal (separate transaction) - HEAVY WORK
+        • Transfers all prizes to winner
+        • Distributes pool (fees, creator, extra recipient)
+        • Can be triggered by ANYONE (permissionless)
+        • Can be RETRIED if it fails
+        • Protected by nonReentrant modifier
+```
+
+### Why This Design?
+
+| Problem                             | Solution                         |
+| ----------------------------------- | -------------------------------- |
+| VRF callback gas limit (~500k)      | `setWinner()` uses < 50k gas     |
+| Prize transfer failures in callback | Transfers happen in separate tx  |
+| Stuck/failed VRF                    | Retry mechanism + emergency fail |
+| Single point of failure             | Permissionless dispersal         |
+
+### Exception Scenarios and Handling
+
+#### 1. VRF Callback Out of Gas
+
+**Risk**: Chainlink VRF has a `callbackGasLimit` (~500k default). Complex operations could exceed this.
+
+**Protection**: `setWinner()` only performs storage writes:
+
+```solidity
+function setWinner(uint256 _requestId, uint256 randomNumber) external onlyFactory {
+    // Only storage operations - guaranteed to succeed
+    uint256 _winningEntry = randomNumber % totalEntries();
+    address _winner = ownerOf(_winningEntry);
+
+    requestId = _requestId;
+    winningEntry = _winningEntry;
+    winner = _winner;
+    gameStatus = GameStatus.WinnerDrawn;
+}
+```
+
+#### 2. VRF Never Responds
+
+**Risk**: Network congestion, Chainlink issues, or insufficient LINK could prevent response.
+
+**Protection**: Retry mechanism available immediately:
+
+```solidity
+// Anyone can call to request new random words
+function retryVRFRequest(address raffle) external;
+```
+
+**Recovery Flow**:
+
+```
+DrawStarted ──► [VRF stuck] ──► retryVRFRequest() ──► [New VRF] ──► WinnerDrawn
+```
+
+#### 3. VRF Stuck > 24 Hours
+
+**Risk**: Prolonged VRF failure leaves raffle in limbo.
+
+**Protection**: Emergency fail mechanism after timeout:
+
+```solidity
+// Anyone can call after 24 hours
+function emergencyFailRaffle(address raffle) external;
+```
+
+**Recovery Flow**:
+
+```
+DrawStarted ──► [24h timeout] ──► emergencyFailRaffle() ──► FailedDraw ──► Refunds
+```
+
+#### 4. Stale VRF Response After Retry
+
+**Risk**: Old VRF request responds after a retry was issued.
+
+**Protection**: State check in `setWinner()`:
+
+```solidity
+if (gameStatus != GameStatus.DrawStarted) revert Errors.DrawNotStarted();
+```
+
+**Scenario**:
+
+```
+1. VRF Request #1 sent
+2. No response, retry called
+3. VRF Request #2 sent
+4. Request #2 fulfilled → Winner set, status = WinnerDrawn
+5. Request #1 finally responds → REVERTS (status != DrawStarted)
+```
+
+#### 5. Prize/Pool Transfer Failures
+
+**Risk**: ERC20/ERC721 transfers could fail during dispersal.
+
+**Protection**: Dispersal is a separate, retryable transaction:
+
+```solidity
+// Anyone can call, can be retried
+function disperseRewards(address raffle) external;
+```
+
+**Note**: If a malicious/broken token prevents dispersal, the raffle will be stuck in `WinnerDrawn` state. The winner is
+known but cannot receive prizes. This is a limitation when dealing with non-standard tokens.
+
+#### 6. Subscription Runs Out of LINK
+
+**Risk**: VRF request fails if subscription has insufficient LINK.
+
+**Protection**:
+
+- VRF request reverts, raffle stays in `Initialized` state
+- Upkeep will retry after subscription is funded
+- Or criteria will fail naturally at deadline
+
+### VRF Request Tracking
+
+```solidity
+struct VRFRequest {
+    uint256 requestId;    // Current request ID
+    uint256 requestTime;  // When request was made
+    VRFStatus status;     // None, Pending, Fulfilled, Failed
+}
+
+// Mappings
+_requestIds[requestId] => raffle address
+_raffleVRFRequests[raffle] => VRFRequest
+```
+
+### Recovery Function Reference
+
+| Function                      | Who Can Call | When Available       | Effect                |
+| ----------------------------- | ------------ | -------------------- | --------------------- |
+| `retryVRFRequest(raffle)`     | Anyone       | Status = Pending     | New VRF request       |
+| `emergencyFailRaffle(raffle)` | Anyone       | After 24h timeout    | Sets FailedDraw       |
+| `disperseRewards(raffle)`     | Anyone       | Status = WinnerDrawn | Transfers prizes/pool |
+
+### Gas Usage
+
+| Operation               | Typical Gas        | VRF Callback Safe? |
+| ----------------------- | ------------------ | ------------------ |
+| `setWinner()`           | ~50,000            | Yes                |
+| `disperseRewards()`     | 100,000 - 500,000+ | N/A (separate tx)  |
+| `retryVRFRequest()`     | ~100,000           | N/A                |
+| `emergencyFailRaffle()` | ~50,000            | N/A                |
+
+---
+
 ## Security Features
 
 1. **ReentrancyGuard**: All external calls protected

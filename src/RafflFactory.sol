@@ -31,20 +31,26 @@ import { IFactoryFeeManager } from "./interfaces/IFactoryFeeManager.sol";
 /// @dev The RafflFactory contract can be used to create raffle contracts, leveraging Chainlink VRF and Chainlink
 /// Automations.
 contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, FactoryFeeManager {
+    // ============ Gas-Optimized Storage Layout ============
+    
+    // Slot inherited from VRFConsumerBaseV2Plus: s_vrfCoordinator
+    
+    // ============ Slot X: VRF Config (packed) ============
     /// @dev Max gas to bump to
     bytes32 keyHash;
-
-    /// @dev Callback gas limit for the Chainlink VRF
-    uint32 callbackGasLimit = 500_000;
-
-    /// @dev Whether to pay Chainlink fees with native token or LINK
-    bool nativePayment = true;
-
-    /// @dev Number of requests confirmations for the Chainlink VRF
-    uint16 requestConfirmations = 3;
-
+    
+    // ============ Slot X+1: Chainlink subscription ID ============
     /// @dev Chainlink subscription ID
     uint256 public subscriptionId;
+    
+    // ============ Slot X+2: Packed VRF settings (7 bytes total) ============
+    /// @dev Callback gas limit for the Chainlink VRF
+    uint32 callbackGasLimit = 500_000;
+    /// @dev Number of requests confirmations for the Chainlink VRF
+    uint16 requestConfirmations = 3;
+    /// @dev Whether to pay Chainlink fees with native token or LINK
+    bool nativePayment = true;
+    // 25 bytes remaining in this slot
 
     /// @param raffle Address of the created raffle
     event RaffleCreated(address raffle);
@@ -76,11 +82,13 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         Failed // Request failed or timed out
     }
 
-    /// @dev Struct to store VRF request information
+    /// @dev Struct to store VRF request information (gas-optimized: 2 slots instead of 3)
+    /// @dev requestTime as uint64 is sufficient until year 584 billion
     struct VRFRequest {
-        uint256 requestId;
-        uint256 requestTime;
-        VRFStatus status;
+        uint256 requestId;      // slot 0: 32 bytes
+        uint64 requestTime;     // slot 1: 8 bytes
+        VRFStatus status;       // slot 1: 1 byte (packed with requestTime)
+        // 23 bytes remaining in slot 1
     }
 
     /// @dev Maps raffle address to its VRF request information
@@ -91,13 +99,18 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
     /// @dev `raffle` the address of the raffle
     /// @dev `deadline` is the timestamp that marks the start time to perform the upkeep effect.
+    /// @dev Gas-optimized: deadline as uint64 (sufficient until year 584 billion)
     struct ActiveRaffle {
-        address raffle;
-        uint256 deadline;
+        address raffle;     // 20 bytes
+        uint64 deadline;    // 8 bytes (packed with raffle in same slot)
+        // 4 bytes remaining
     }
 
     /// @dev Stores the active raffles, which upkeep is pending to be performed
     ActiveRaffle[] internal _activeRaffles;
+    
+    /// @dev Maps raffle address to its index in _activeRaffles for O(1) removal
+    mapping(address => uint256) internal _raffleToActiveIndex;
 
     /**
      * @dev Creates a `Raffl` factory contract.
@@ -233,7 +246,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         }
 
         _raffles[raffle] = true;
-        _activeRaffles.push(ActiveRaffle({ raffle: raffle, deadline: deadline }));
+        uint256 activeIndex = _activeRaffles.length;
+        _activeRaffles.push(ActiveRaffle({ raffle: raffle, deadline: uint64(deadline) }));
+        _raffleToActiveIndex[raffle] = activeIndex;
         emit RaffleCreated(raffle);
     }
 
@@ -376,7 +391,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
             // Store VRF request info for tracking and retry capability
             _raffleVRFRequests[raffle] =
-                VRFRequest({ requestId: requestId, requestTime: block.timestamp, status: VRFStatus.Pending });
+                VRFRequest({ requestId: requestId, requestTime: uint64(block.timestamp), status: VRFStatus.Pending });
 
             // Do NOT burn the active raffle yet - keep it until rewards dispersed
         } else {
@@ -437,7 +452,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         // Update with new request ID and timestamp
         _requestIds[requestId] = raffle;
         vrfRequest.requestId = requestId;
-        vrfRequest.requestTime = block.timestamp;
+        vrfRequest.requestTime = uint64(block.timestamp);
 
         emit VRFRequestRetried(raffle, requestId);
     }
@@ -467,25 +482,43 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     }
 
     /// @notice Helper function to remove a raffle from the `_activeRaffles` array by address
-    /// @dev Searches for the raffle and removes it
+    /// @dev O(1) removal using index mapping
     /// @param raffle The address of the raffle to remove
     function _removeRaffleFromActive(address raffle) internal {
-        uint256 length = _activeRaffles.length;
-        for (uint256 i = 0; i < length; i++) {
-            if (_activeRaffles[i].raffle == raffle) {
-                _burnActiveRaffle(i);
-                return;
-            }
+        uint256 index = _raffleToActiveIndex[raffle];
+        uint256 lastIndex = _activeRaffles.length - 1;
+        
+        // If not the last element, swap with last
+        if (index != lastIndex) {
+            ActiveRaffle memory lastRaffle = _activeRaffles[lastIndex];
+            _activeRaffles[index] = lastRaffle;
+            _raffleToActiveIndex[lastRaffle.raffle] = index;
         }
+        
+        // Remove last element and clean up mapping
+        _activeRaffles.pop();
+        delete _raffleToActiveIndex[raffle];
     }
 
     /// @notice Helper function to remove a raffle from the `_activeRaffles` array by index
-    /// @dev Move the last element to the deleted stop and removes the last element
+    /// @dev Move the last element to the deleted slot and removes the last element
     /// @param i Element index to remove
     function _burnActiveRaffle(uint256 i) internal {
         if (i >= _activeRaffles.length) revert Errors.ActiveRaffleIndexOutOfBounds();
-        _activeRaffles[i] = _activeRaffles[_activeRaffles.length - 1];
+        
+        address raffleAtIndex = _activeRaffles[i].raffle;
+        uint256 lastIndex = _activeRaffles.length - 1;
+        
+        // If not the last element, swap with last and update mapping
+        if (i != lastIndex) {
+            ActiveRaffle memory lastRaffle = _activeRaffles[lastIndex];
+            _activeRaffles[i] = lastRaffle;
+            _raffleToActiveIndex[lastRaffle.raffle] = i;
+        }
+        
+        // Remove last element and clean up mapping
         _activeRaffles.pop();
+        delete _raffleToActiveIndex[raffleAtIndex];
     }
 
     /// @inheritdoc IFactoryFeeManager

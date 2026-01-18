@@ -33,48 +33,83 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
      * STATE
      *
      */
+    
+    // ============ Slot 0: Packed addresses and flags ============
     /// @dev Address of the RafflFactory
     address public factory;
-    /// @dev User address that created the Raffl
-    address public creator;
-    /// @dev Prizes contained in the Raffl
-    Prize[] public prizes;
-    /// @dev Block timestamp for when the draw should be made and until entries are accepted
-    uint256 public deadline;
-    /// @dev Minimum number of entries required to execute the draw
-    uint256 public minEntries;
-    /// @dev Price of the entry to participate in the Raffl
-    uint256 public entryPrice;
-    /// @dev Address of the ERC20 entry token (if applicable)
-    address public entryToken;
-    /// @dev Array of token gates required for all participants to purchase entries.
-    TokenGate[] public tokenGates;
-    /// @dev Maps a user address to whether refund was made.
-    mapping(address => bool) public userRefund;
-    /// @dev Extra recipient to share the pooled funds.
-    ExtraRecipient public extraRecipient;
-    /// @dev Total pooled funds from entries acquisition
-    uint256 public pool;
     /// @dev Whether the raffle is settled or not
     bool public settled;
     /// @dev Whether the prizes were refunded when criteria did not meet.
     bool public prizesRefunded;
-    /// @dev Status of the Raffl game
+    /// @dev Status of the Raffl game (uint8 enum)
     GameStatus public gameStatus;
-    /// @dev The winning entry number
-    uint256 public winningEntry;
+    // 9 bytes remaining in this slot
+    
+    // ============ Slot 1 ============
+    /// @dev User address that created the Raffl
+    address public creator;
+    // 12 bytes remaining
+    
+    // ============ Slot 2 ============
+    /// @dev Address of the ERC20 entry token (if applicable)
+    address public entryToken;
+    // 12 bytes remaining
+    
+    // ============ Slot 3 ============
     /// @dev The address of the winner
     address public winner;
+    // 12 bytes remaining
+    
+    // ============ Slot 4 ============
+    /// @notice The manager that deployed this contract which controls the values for `fee` and `feeCollector`.
+    IFeeManager public manager;
+    // 12 bytes remaining
+    
+    // ============ Slot 5 ============
+    /// @dev Block timestamp for when the draw should be made and until entries are accepted
+    uint256 public deadline;
+    
+    // ============ Slot 6 ============
+    /// @dev Minimum number of entries required to execute the draw
+    uint256 public minEntries;
+    
+    // ============ Slot 7 ============
+    /// @dev Price of the entry to participate in the Raffl
+    uint256 public entryPrice;
+    
+    // ============ Slot 8 ============
+    /// @dev Total pooled funds from entries acquisition
+    uint256 public pool;
+    
+    // ============ Slot 9 ============
+    /// @dev The winning entry number
+    uint256 public winningEntry;
+    
+    // ============ Slot 10 ============
     /// @dev The request ID from VRF
     uint256 public requestId;
+    
+    // ============ Dynamic arrays (each takes its own slot + length) ============
+    /// @dev Prizes contained in the Raffl
+    Prize[] public prizes;
+    /// @dev Array of token gates required for all participants to purchase entries.
+    TokenGate[] public tokenGates;
+    
+    // ============ Mappings ============
+    /// @dev Maps a user address to whether refund was made.
+    mapping(address => bool) public userRefund;
+    
+    // ============ Structs (ExtraRecipient is 28 bytes, fits in one slot) ============
+    /// @dev Extra recipient to share the pooled funds.
+    ExtraRecipient public extraRecipient;
+    
+    // ============ Constants (don't use storage) ============
     /// @dev Maximum number of entries a single address can hold.
     uint64 internal constant MAX_ENTRIES_PER_USER = 2 ** 64 - 1; // type(uint64).max
     /// @dev Maximum total of entries.
     uint256 internal constant MAX_TOTAL_ENTRIES = 2 ** 256 - 1; // type(uint256).max
     /// @dev Percentages and fees are calculated using 18 decimals where 1 ether is 100%.
     uint256 internal constant ONE = 1 ether;
-    /// @notice The manager that deployed this contract which controls the values for `fee` and `feeCollector`.
-    IFeeManager public manager;
 
     /**
      *
