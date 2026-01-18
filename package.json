@@ -36,8 +36,8 @@
     "@openzeppelin/contracts-upgradeable": "^5.4.0"
   },
   "devDependencies": {
-    "forge-std": "github:foundry-rs/forge-std#v1.8.1",
-    "prettier": "^3.7.4",
+    "forge-std": "github:foundry-rs/forge-std#v1.14.0",
+    "prettier": "^3.8.0",
     "solhint": "^6.0.2"
   }
 }
