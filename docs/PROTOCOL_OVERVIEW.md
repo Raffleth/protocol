@@ -786,6 +786,402 @@ _raffleVRFRequests[raffle] => VRFRequest
 
 ---
 
+## Chainlink Failure Scenarios & Recovery
+
+This section provides detailed analysis of what happens when Chainlink interactions fail and how the protocol recovers.
+
+### Scenario 1: VRF Callback Runs Out of Gas
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: VRF callback exceeds callbackGasLimit (default: 500,000)          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   performUpkeep()                                                           │
+│        │                                                                    │
+│        ▼                                                                    │
+│   requestRandomWords() ───► Chainlink VRF Coordinator                       │
+│        │                           │                                        │
+│        │                           ▼                                        │
+│   VRF Request                fulfillRandomWords()                           │
+│   Status: Pending                  │                                        │
+│                                    ▼                                        │
+│                           ┌───────────────────┐                             │
+│                           │  OUT OF GAS!      │                             │
+│                           │  Transaction      │                             │
+│                           │  Reverts          │                             │
+│                           └───────────────────┘                             │
+│                                    │                                        │
+│                                    ▼                                        │
+│   RESULT:                                                                   │
+│   • No state changes occur                                                  │
+│   • VRF status remains: Pending                                             │
+│   • Raffle status remains: DrawStarted                                      │
+│   • Winner NOT set                                                          │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ RECOVERY OPTIONS:                                                           │
+│                                                                             │
+│   Option A: Retry VRF (Immediate)                                           │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  Anyone calls: retryVRFRequest(raffle)                              │   │
+│   │  • Sends new VRF request                                            │   │
+│   │  • Updates requestId and requestTime                                │   │
+│   │  • Status remains: Pending                                          │   │
+│   │  • New callback will attempt fulfillment                            │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│   Option B: Emergency Fail (After 24 hours)                                 │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  Anyone calls: emergencyFailRaffle(raffle)                          │   │
+│   │  • Sets VRF status: Failed                                          │   │
+│   │  • Sets raffle status: FailedDraw                                   │   │
+│   │  • Users can call refundEntries() for refunds                       │   │
+│   │  • Creator can call refundPrizes() for prizes                       │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ WHY THIS IS UNLIKELY:                                                       │
+│                                                                             │
+│   setWinner() is designed to be lightweight:                                │
+│   • 1 modulo operation                                                      │
+│   • 1 ownerOf() lookup                                                      │
+│   • 4 storage writes                                                        │
+│   • 1 event emission                                                        │
+│   • Total: ~50,000-80,000 gas (well under 500,000 limit)                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Scenario 2: VRF Never Responds (Network/Subscription Issues)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: Chainlink VRF never delivers random words                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Possible Causes:                                                            │
+│ • Chainlink subscription has insufficient LINK                              │
+│ • Network congestion prevents Chainlink nodes from responding               │
+│ • Chainlink service degradation                                             │
+│ • Invalid keyHash or subscription configuration                             │
+│                                                                             │
+│ Timeline:                                                                   │
+│ ┌───────────────────────────────────────────────────────────────────────┐   │
+│ │                                                                       │   │
+│ │  T+0        T+1h       T+12h      T+24h      T+24h+                   │   │
+│ │   │          │          │          │          │                       │   │
+│ │   ▼          ▼          ▼          ▼          ▼                       │   │
+│ │ Request   Retry     Retry      TIMEOUT    Emergency                   │   │
+│ │ Sent      Available Available  REACHED    Fail Available              │   │
+│ │           ───────────────────────────────►                            │   │
+│ │           retryVRFRequest() available     emergencyFailRaffle()       │   │
+│ │                                           now available               │   │
+│ │                                                                       │   │
+│ └───────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│ State During Wait:                                                          │
+│ • VRF Status: Pending                                                       │
+│ • Raffle Status: DrawStarted                                                │
+│ • Entries: Locked (no new entries, no refunds)                              │
+│ • Prizes: Held in raffle contract                                           │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ RECOVERY FLOW:                                                              │
+│                                                                             │
+│   hasVRFRequestTimedOut(raffle) ───► true (after 24h)                       │
+│                │                                                            │
+│                ▼                                                            │
+│   emergencyFailRaffle(raffle)                                               │
+│                │                                                            │
+│                ├───► VRF Status = Failed                                    │
+│                ├───► Raffle Status = FailedDraw                             │
+│                └───► Raffle removed from active list                        │
+│                                                                             │
+│                           │                                                 │
+│             ┌─────────────┴─────────────┐                                   │
+│             ▼                           ▼                                   │
+│   refundEntries(user)          refundPrizes()                               │
+│   • Users get ETH/tokens       • Creator gets prizes back                   │
+│   • Per-user, self-service     • Only creator can call                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Scenario 3: Automation (checkUpkeep/performUpkeep) Fails
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: Chainlink Automation transaction reverts or runs out of gas       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Case A: checkUpkeep() Fails                                                 │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • This is a view function, no state changes                             │ │
+│ │ • Automation will retry on next block                                   │ │
+│ │ • No user action needed                                                 │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ Case B: performUpkeep() Fails During VRF Request                            │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • Transaction reverts, no state changes                                 │ │
+│ │ • Raffle remains in Initialized state                                   │ │
+│ │ • Automation will retry on next check                                   │ │
+│ │ • Manual trigger: Anyone can call performUpkeep() with correct data     │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ Case C: performUpkeep() Fails During Dispersal                              │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • Transaction reverts, dispersal not completed                          │ │
+│ │ • Winner is already set (status = WinnerDrawn)                          │ │
+│ │ • Prizes/pool remain in contract                                        │ │
+│ │ • Recovery: Call disperseRewards(raffle) directly                       │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ MANUAL INTERVENTION OPTIONS:                                                │
+│                                                                             │
+│   1. Direct performUpkeep() call:                                           │
+│      bytes memory performData = abi.encode(raffleAddress, activeIndex);     │
+│      factory.performUpkeep(performData);                                    │
+│                                                                             │
+│   2. Direct disperseRewards() call (if winner set):                         │
+│      factory.disperseRewards(raffleAddress);                                │
+│                                                                             │
+│   Both are PERMISSIONLESS - anyone can help complete stuck raffles          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Scenario 4: disperseRewards() Fails
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: Prize or pool transfer fails during dispersal                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Possible Causes:                                                            │
+│ • ERC20 token has transfer restrictions (pausable, blacklist)               │
+│ • ERC721 token has custom transfer logic that reverts                       │
+│ • Recipient contract rejects ETH (no receive/fallback)                      │
+│ • Insufficient gas for complex token transfers                              │
+│                                                                             │
+│ State After Failure:                                                        │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • Winner: Set (known and immutable)                                     │ │
+│ │ • Game Status: WinnerDrawn (unchanged)                                  │ │
+│ │ • Prizes: Still in raffle contract                                      │ │
+│ │ • Pool: Still in raffle contract                                        │ │
+│ │ • Raffle: Still in active list                                          │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ RECOVERY:                                                                   │
+│                                                                             │
+│   disperseRewards() can be called again:                                    │
+│   • By Chainlink Automation (automatic retry)                               │
+│   • By anyone manually: factory.disperseRewards(raffle)                     │
+│   • By anyone manually: raffl.disperseRewards() directly                    │
+│                                                                             │
+│   If transfer issue is resolved (e.g., token unpaused):                     │
+│   • Retry will succeed                                                      │
+│   • Winner receives prizes                                                  │
+│   • Pool distributed to creator/fees/extra recipient                        │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ EDGE CASE - PERMANENTLY STUCK:                                              │
+│                                                                             │
+│   If a prize token is malicious or permanently broken:                      │
+│   • Raffle stuck in WinnerDrawn state                                       │
+│   • Winner is publicly known but cannot receive prizes                      │
+│   • NO PROTOCOL-LEVEL RECOVERY for malicious tokens                         │
+│   • This is a limitation when creators use non-standard tokens              │
+│                                                                             │
+│   Prevention:                                                               │
+│   • Frontend should validate prize tokens before creation                   │
+│   • Users should verify prize token contracts                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Scenario 5: Stale VRF Response After Retry
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: Old VRF request responds after a retry was initiated              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Timeline:                                                                   │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │                                                                         │ │
+│ │  T+0              T+1h             T+2h             T+3h                │ │
+│ │   │                │                │                │                  │ │
+│ │   ▼                ▼                ▼                ▼                  │ │
+│ │ Request #1      Retry called    Request #2      Request #1             │ │
+│ │ Sent            Request #2      Fulfilled       Finally arrives        │ │
+│ │ (pending)       Sent            Winner Set!     (stale)                │ │
+│ │                                                                         │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ What Happens:                                                               │
+│                                                                             │
+│   fulfillRandomWords(requestId_1, randomWords)                              │
+│        │                                                                    │
+│        ▼                                                                    │
+│   raffle = _requestIds[requestId_1]  // Still maps to raffle               │
+│        │                                                                    │
+│        ▼                                                                    │
+│   IRaffl(raffle).setWinner(...)                                             │
+│        │                                                                    │
+│        ▼                                                                    │
+│   ┌───────────────────────────────────────────────────────────────────┐    │
+│   │  if (gameStatus != GameStatus.DrawStarted)                        │    │
+│   │      revert Errors.DrawNotStarted();                              │    │
+│   │                                                                   │    │
+│   │  gameStatus is WinnerDrawn (from Request #2)                      │    │
+│   │  ══► REVERTS! Stale request rejected                              │    │
+│   └───────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ PROTECTION MECHANISM:                                                       │
+│                                                                             │
+│   The state check in setWinner() prevents double-setting:                   │
+│                                                                             │
+│   function setWinner(uint256 vrfRequestId, uint256 randomNumber) external { │
+│       if (gameStatus != GameStatus.DrawStarted)                             │
+│           revert Errors.DrawNotStarted();  // ◄── PROTECTION               │
+│       // ... set winner ...                                                 │
+│       gameStatus = GameStatus.WinnerDrawn;                                  │
+│   }                                                                         │
+│                                                                             │
+│   Once a winner is set, ALL subsequent VRF responses are rejected.          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Scenario 6: LINK Subscription Issues
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SCENARIO: Chainlink subscription has insufficient LINK or is misconfigured  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Case A: Insufficient LINK at Request Time                                   │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • requestRandomWords() reverts                                          │ │
+│ │ • performUpkeep() transaction fails                                     │ │
+│ │ • Raffle remains in Initialized state                                   │ │
+│ │ • No VRF request recorded                                               │ │
+│ │                                                                         │ │
+│ │ Recovery:                                                               │ │
+│ │ • Fund the subscription with LINK                                       │ │
+│ │ • Automation will retry, or call performUpkeep() manually               │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ Case B: Subscription Cancelled Mid-Flight                                   │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • VRF request already sent and pending                                  │ │
+│ │ • Chainlink may not fulfill the request                                 │ │
+│ │ • Raffle stuck in DrawStarted state                                     │ │
+│ │                                                                         │ │
+│ │ Recovery:                                                               │ │
+│ │ • Create new subscription, update via handleSubscription()              │ │
+│ │ • Call retryVRFRequest() to send new request                            │ │
+│ │ • Or wait 24h and call emergencyFailRaffle()                            │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ Case C: Invalid keyHash                                                     │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • VRF request may be rejected by coordinator                            │ │
+│ │ • Or request accepted but never fulfilled                               │ │
+│ │                                                                         │ │
+│ │ Recovery:                                                               │ │
+│ │ • Owner updates keyHash via handleSubscription()                        │ │
+│ │ • retryVRFRequest() with correct configuration                          │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ADMIN RECOVERY FUNCTION:                                                    │
+│                                                                             │
+│   function handleSubscription(                                              │
+│       uint64 _subscriptionId,                                               │
+│       bytes32 _keyHash,                                                     │
+│       uint32 _callbackGasLimit,                                             │
+│       uint16 _requestConfirmations,                                         │
+│       bool _nativePayment                                                   │
+│   ) external onlyOwner;                                                     │
+│                                                                             │
+│   Emits: SubscriptionConfigUpdated event for monitoring                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Complete Recovery Decision Tree
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CHAINLINK FAILURE RECOVERY DECISION TREE                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Raffle Status?                                                            │
+│        │                                                                    │
+│        ├──► Initialized (deadline not passed)                               │
+│        │         │                                                          │
+│        │         └──► Wait for deadline, Automation will handle             │
+│        │                                                                    │
+│        ├──► Initialized (deadline passed, upkeep pending)                   │
+│        │         │                                                          │
+│        │         └──► Call performUpkeep() manually                         │
+│        │              └──► If fails: Check LINK balance, retry              │
+│        │                                                                    │
+│        ├──► DrawStarted (VRF pending)                                       │
+│        │         │                                                          │
+│        │         ├──► < 24h elapsed?                                        │
+│        │         │         │                                                │
+│        │         │         └──► Call retryVRFRequest()                      │
+│        │         │                                                          │
+│        │         └──► >= 24h elapsed?                                       │
+│        │                   │                                                │
+│        │                   └──► Call emergencyFailRaffle()                  │
+│        │                        └──► Users: refundEntries()                 │
+│        │                        └──► Creator: refundPrizes()                │
+│        │                                                                    │
+│        ├──► WinnerDrawn (dispersal pending)                                 │
+│        │         │                                                          │
+│        │         └──► Call disperseRewards()                                │
+│        │              └──► If fails: Investigate token issue                │
+│        │              └──► Retry when issue resolved                        │
+│        │                                                                    │
+│        ├──► SuccessDraw                                                     │
+│        │         │                                                          │
+│        │         └──► Complete! No action needed                            │
+│        │                                                                    │
+│        └──► FailedDraw                                                      │
+│                  │                                                          │
+│                  └──► Refunds available                                     │
+│                       └──► Users: refundEntries()                           │
+│                       └──► Creator: refundPrizes()                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Configuration Constants
+
+| Constant               | Value             | Purpose                                    |
+| ---------------------- | ----------------- | ------------------------------------------ |
+| `VRF_REQUEST_TIMEOUT`  | 24 hours          | Time before emergency fail is available    |
+| `callbackGasLimit`     | 500,000 (default) | Max gas for VRF callback                   |
+| `requestConfirmations` | 3 (default)       | Block confirmations before VRF fulfillment |
+
+### Monitoring Recommendations
+
+1. **Track VRF Request Status**: Monitor `_raffleVRFRequests` mapping for stuck requests
+2. **Alert on Timeout**: Notify when `hasVRFRequestTimedOut()` returns true
+3. **Monitor Subscription Balance**: Ensure LINK balance is sufficient
+4. **Watch for Failed Dispersals**: Track raffles stuck in `WinnerDrawn` state
+
+---
+
 ## Security Features
 
 1. **ReentrancyGuard**: All external calls protected
