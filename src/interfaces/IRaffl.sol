@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (interfaces/IRaffl.sol)
+// Raffl Protocol (last updated v2.0.0) (interfaces/IRaffl.sol)
 pragma solidity ^0.8.33;
 
 /// @dev Interface that describes the Prize struct, the GameStatus and initialize function so the `RafflFactory` knows

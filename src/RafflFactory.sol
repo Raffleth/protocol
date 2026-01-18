@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (RafflFactory.sol)
+// Raffl Protocol (last updated v2.0.0) (RafflFactory.sol)
 pragma solidity ^0.8.33;
 
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
