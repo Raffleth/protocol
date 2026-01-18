@@ -53,7 +53,7 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     // 25 bytes remaining in this slot
 
     /// @param raffle Address of the created raffle
-    event RaffleCreated(address raffle);
+    event RaffleCreated(address indexed raffle);
 
     /// @param raffle Address of the raffle
     /// @param requestId The VRF request ID
@@ -61,6 +61,19 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
 
     /// @param raffle Address of the raffle
     event RaffleEmergencyFailed(address indexed raffle);
+
+    /// @param subscriptionId New Chainlink subscription ID
+    /// @param keyHash New key hash for VRF
+    /// @param callbackGasLimit New callback gas limit
+    /// @param requestConfirmations New number of request confirmations
+    /// @param nativePayment Whether to pay with native token
+    event SubscriptionConfigUpdated(
+        uint256 indexed subscriptionId,
+        bytes32 keyHash,
+        uint32 callbackGasLimit,
+        uint16 requestConfirmations,
+        bool nativePayment
+    );
 
     /// @notice The address that will be used as a delegate call target for `Raffl`s.
     address public immutable implementation;
@@ -305,6 +318,8 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         callbackGasLimit = _callbackGasLimit;
         requestConfirmations = _requestConfirmations;
         nativePayment = _nativePayment;
+
+        emit SubscriptionConfigUpdated(_subscriptionId, _keyHash, _callbackGasLimit, _requestConfirmations, _nativePayment);
     }
 
     /**

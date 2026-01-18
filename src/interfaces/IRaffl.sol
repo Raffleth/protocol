@@ -136,7 +136,8 @@ interface IRaffl {
     /// @notice Sets the criteria as settled, sets the `GameStatus` as `DrawStarted` and emits event
     /// `DeadlineSuccessCriteria`
     /// @dev Access control: `factory` is the only allowed to called this method
-    function setSuccessCriteria(uint256 requestId) external;
+    /// @param vrfRequestId The VRF request ID from Chainlink
+    function setSuccessCriteria(uint256 vrfRequestId) external;
 
     /// @notice Sets the criteria as settled, sets the `GameStatus` as `FailedDraw` and emits event
     /// `DeadlineFailedCriteria`
@@ -172,7 +173,9 @@ interface IRaffl {
 
     /// @notice Sets the winner based on the random number from VRF, emits event `WinnerDrawn`
     /// @dev Access control: `factory` is the only allowed to called this method through the Chainlink VRF Coordinator
-    function setWinner(uint256 requestId, uint256 randomNumber) external;
+    /// @param vrfRequestId The VRF request ID from Chainlink
+    /// @param randomNumber The random number from VRF used to select winner
+    function setWinner(uint256 vrfRequestId, uint256 randomNumber) external;
 
     /// @notice Returns the VRF request ID
     function requestId() external view returns (uint256);

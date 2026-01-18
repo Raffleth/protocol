@@ -439,9 +439,9 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
      */
 
     /// @inheritdoc IRaffl
-    function setSuccessCriteria(uint256 requestId) external override onlyFactory {
+    function setSuccessCriteria(uint256 vrfRequestId) external override onlyFactory {
         gameStatus = GameStatus.DrawStarted;
-        emit DeadlineSuccessCriteria(requestId, totalEntries(), minEntries);
+        emit DeadlineSuccessCriteria(vrfRequestId, totalEntries(), minEntries);
         settled = true;
     }
 
@@ -453,19 +453,19 @@ contract Raffl is ReentrancyGuardUpgradeable, EntriesManager, IRaffl {
     }
 
     /// @inheritdoc IRaffl
-    function setWinner(uint256 _requestId, uint256 randomNumber) external override onlyFactory {
+    function setWinner(uint256 vrfRequestId, uint256 randomNumber) external override onlyFactory {
         if (gameStatus != GameStatus.DrawStarted) revert Errors.DrawNotStarted();
 
         uint256 totalEntries_ = totalEntries();
         uint256 _winningEntry = randomNumber % totalEntries_;
         address _winner = ownerOf(_winningEntry);
 
-        requestId = _requestId;
+        requestId = vrfRequestId;
         winningEntry = _winningEntry;
         winner = _winner;
         gameStatus = GameStatus.WinnerDrawn;
 
-        emit WinnerDrawn(_requestId, _winningEntry, _winner, totalEntries_);
+        emit WinnerDrawn(vrfRequestId, _winningEntry, _winner, totalEntries_);
     }
 
     /// @inheritdoc IRaffl
