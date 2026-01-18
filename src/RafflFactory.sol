@@ -32,17 +32,17 @@ import { IFactoryFeeManager } from "./interfaces/IFactoryFeeManager.sol";
 /// Automations.
 contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, FactoryFeeManager {
     // ============ Gas-Optimized Storage Layout ============
-    
+
     // Slot inherited from VRFConsumerBaseV2Plus: s_vrfCoordinator
-    
+
     // ============ Slot X: VRF Config (packed) ============
     /// @dev Max gas to bump to
     bytes32 keyHash;
-    
+
     // ============ Slot X+1: Chainlink subscription ID ============
     /// @dev Chainlink subscription ID
     uint256 public subscriptionId;
-    
+
     // ============ Slot X+2: Packed VRF settings (7 bytes total) ============
     /// @dev Callback gas limit for the Chainlink VRF
     uint32 callbackGasLimit = 500_000;
@@ -98,9 +98,9 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @dev Struct to store VRF request information (gas-optimized: 2 slots instead of 3)
     /// @dev requestTime as uint64 is sufficient until year 584 billion
     struct VRFRequest {
-        uint256 requestId;      // slot 0: 32 bytes
-        uint64 requestTime;     // slot 1: 8 bytes
-        VRFStatus status;       // slot 1: 1 byte (packed with requestTime)
+        uint256 requestId; // slot 0: 32 bytes
+        uint64 requestTime; // slot 1: 8 bytes
+        VRFStatus status; // slot 1: 1 byte (packed with requestTime)
         // 23 bytes remaining in slot 1
     }
 
@@ -114,14 +114,14 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @dev `deadline` is the timestamp that marks the start time to perform the upkeep effect.
     /// @dev Gas-optimized: deadline as uint64 (sufficient until year 584 billion)
     struct ActiveRaffle {
-        address raffle;     // 20 bytes
-        uint64 deadline;    // 8 bytes (packed with raffle in same slot)
+        address raffle; // 20 bytes
+        uint64 deadline; // 8 bytes (packed with raffle in same slot)
         // 4 bytes remaining
     }
 
     /// @dev Stores the active raffles, which upkeep is pending to be performed
     ActiveRaffle[] internal _activeRaffles;
-    
+
     /// @dev Maps raffle address to its index in _activeRaffles for O(1) removal
     mapping(address => uint256) internal _raffleToActiveIndex;
 
@@ -176,8 +176,16 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     }
 
     /// @notice Increments the salt one step.
+    /// @dev Gas-optimized: uses assembly for keccak256 (~50-100 gas savings)
     function nextSalt() public {
-        _salt = keccak256(abi.encode(_salt));
+        /// @solidity memory-safe-assembly
+        assembly {
+            // Load current salt from storage
+            let currentSalt := sload(_salt.slot)
+            // Compute keccak256 and store back
+            mstore(0x00, currentSalt)
+            sstore(_salt.slot, keccak256(0x00, 0x20))
+        }
     }
 
     /**
@@ -242,15 +250,17 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
                 --i;
             }
 
-            if (prizes[i].assetType == IRaffl.AssetType.ERC20 && prizes[i].value == 0) {
+            // Cache prize data to reduce calldata reads
+            IRaffl.Prize calldata prize = prizes[i];
+
+            if (prize.assetType == IRaffl.AssetType.ERC20 && prize.value == 0) {
                 revert Errors.ERC20PrizeAmountIsZero();
             }
-            (bool success, bytes memory data) = prizes[i].asset
-                .call(
-                    abi.encodeWithSignature(
-                        "transferFrom(address,address,uint256)", msg.sender, raffle, prizes[i].value
-                    )
-                );
+
+            // Gas-optimized: use selector instead of signature (~100 gas savings)
+            // transferFrom(address,address,uint256) selector: 0x23b872dd
+            (bool success, bytes memory data) =
+                prize.asset.call(abi.encodeWithSelector(0x23b872dd, msg.sender, raffle, prize.value));
 
             // Check success and decode return value properly
             if (!success || (data.length != 0 && !abi.decode(data, (bool)))) {
@@ -319,13 +329,16 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         requestConfirmations = _requestConfirmations;
         nativePayment = _nativePayment;
 
-        emit SubscriptionConfigUpdated(_subscriptionId, _keyHash, _callbackGasLimit, _requestConfirmations, _nativePayment);
+        emit SubscriptionConfigUpdated(
+            _subscriptionId, _keyHash, _callbackGasLimit, _requestConfirmations, _nativePayment
+        );
     }
 
     /**
      * @notice Method called by the Chainlink Automation Nodes to check if `performUpkeep` must be done.
      * @dev Performs the computation to the array of `_activeRaffles`. This opens the possibility of having several
      * checkUpkeeps done at the same time.
+     * @dev Gas-optimized: caches ActiveRaffle struct per iteration to reduce SLOADs
      * @param checkData Encoded binary data which contains the lower bound and upper bound of the `_activeRaffles` array
      * on which to perform the computation
      * @return upkeepNeeded Whether the upkeep must be performed or not
@@ -345,29 +358,36 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
         address raffle;
         uint256 iterations = upperBound - lowerBound + 1;
         uint256 activeRafflesLength = _activeRaffles.length;
-        
+
+        // Cache block.timestamp to avoid multiple reads (~3 gas per read)
+        uint256 currentTimestamp = block.timestamp;
+
         for (uint256 i = 0; i < iterations;) {
-            if (activeRafflesLength <= lowerBound + i) break;
-            address currentRaffle = _activeRaffles[lowerBound + i].raffle;
+            uint256 currentIndex = lowerBound + i;
+            if (activeRafflesLength <= currentIndex) break;
+
+            // Cache entire struct in memory (reduces SLOADs from 2 to 1 per iteration)
+            ActiveRaffle memory activeRaffle = _activeRaffles[currentIndex];
+            address currentRaffle = activeRaffle.raffle;
 
             // Check if raffle needs reward dispersal
             if (_raffles[currentRaffle] && IRaffl(currentRaffle).shouldDisperseRewards()) {
-                index = lowerBound + i;
+                index = currentIndex;
                 raffle = currentRaffle;
                 upkeepNeeded = true;
                 break;
             }
 
             // Check if raffle deadline passed and upkeep not performed
-            if (_activeRaffles[lowerBound + i].deadline <= block.timestamp) {
+            if (activeRaffle.deadline <= currentTimestamp) {
                 if (_raffles[currentRaffle] && !IRaffl(currentRaffle).upkeepPerformed()) {
-                    index = lowerBound + i;
+                    index = currentIndex;
                     raffle = currentRaffle;
                     upkeepNeeded = true;
                     break;
                 }
             }
-            
+
             unchecked {
                 ++i;
             }
@@ -509,14 +529,14 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     function _removeRaffleFromActive(address raffle) internal {
         uint256 index = _raffleToActiveIndex[raffle];
         uint256 lastIndex = _activeRaffles.length - 1;
-        
+
         // If not the last element, swap with last
         if (index != lastIndex) {
             ActiveRaffle memory lastRaffle = _activeRaffles[lastIndex];
             _activeRaffles[index] = lastRaffle;
             _raffleToActiveIndex[lastRaffle.raffle] = index;
         }
-        
+
         // Remove last element and clean up mapping
         _activeRaffles.pop();
         delete _raffleToActiveIndex[raffle];
@@ -527,17 +547,17 @@ contract RafflFactory is AutomationCompatibleInterface, VRFConsumerBaseV2Plus, F
     /// @param i Element index to remove
     function _burnActiveRaffle(uint256 i) internal {
         if (i >= _activeRaffles.length) revert Errors.ActiveRaffleIndexOutOfBounds();
-        
+
         address raffleAtIndex = _activeRaffles[i].raffle;
         uint256 lastIndex = _activeRaffles.length - 1;
-        
+
         // If not the last element, swap with last and update mapping
         if (i != lastIndex) {
             ActiveRaffle memory lastRaffle = _activeRaffles[lastIndex];
             _activeRaffles[i] = lastRaffle;
             _raffleToActiveIndex[lastRaffle.raffle] = i;
         }
-        
+
         // Remove last element and clean up mapping
         _activeRaffles.pop();
         delete _raffleToActiveIndex[raffleAtIndex];
