@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (libraries/RafflFactoryErrors.sol)
-pragma solidity ^0.8.27;
+// Raffl Protocol (last updated v2.0.0) (libraries/RafflFactoryErrors.sol)
+pragma solidity ^0.8.33;
 
 /// @title Errors Library for RafflFactory.sol
 library Errors {
@@ -42,4 +42,16 @@ library Errors {
 
     /// @notice Error to indicate an unsuccessful transfer of the creation fee.
     error UnsuccessfulCreationFeeTransfer();
+
+    /// @notice Thrown if VRF request does not exist or is invalid.
+    error InvalidVRFRequest();
+
+    /// @notice Thrown if VRF request has not timed out yet.
+    error VRFRequestNotTimedOut();
+
+    /// @notice Thrown if trying to retry a VRF request that is not pending.
+    error VRFRequestNotPending();
+
+    /// @notice Thrown if raffle has no prizes.
+    error NoPrizesProvided();
 }

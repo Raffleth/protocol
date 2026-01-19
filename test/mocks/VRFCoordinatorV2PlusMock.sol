@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: None
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.33;
 
 import { ConfirmedOwner } from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
@@ -272,15 +272,36 @@ contract VRFCoordinatorV2PlusMock is IVRFCoordinatorV2Plus, ConfirmedOwner {
         _;
     }
 
-    function requestSubscriptionOwnerTransfer(uint256, /*_subId*/ address /*_newOwner*/ ) external pure override {
+    function requestSubscriptionOwnerTransfer(
+        uint256,
+        /*_subId*/
+        address /*_newOwner*/
+    )
+        external
+        pure
+        override
+    {
         revert("not implemented");
     }
 
-    function acceptSubscriptionOwnerTransfer(uint256 /*_subId*/ ) external pure override {
+    function acceptSubscriptionOwnerTransfer(
+        uint256 /*_subId*/
+    )
+        external
+        pure
+        override
+    {
         revert("not implemented");
     }
 
-    function pendingRequestExists(uint256 /*subId*/ ) public pure override returns (bool) {
+    function pendingRequestExists(
+        uint256 /*subId*/
+    )
+        public
+        pure
+        override
+        returns (bool)
+    {
         revert("not implemented");
     }
 
@@ -296,7 +317,13 @@ contract VRFCoordinatorV2PlusMock is IVRFCoordinatorV2Plus, ConfirmedOwner {
         revert("not implemented");
     }
 
-    function fundSubscriptionWithNative(uint256 /*subId*/ ) external payable override {
+    function fundSubscriptionWithNative(
+        uint256 /*subId*/
+    )
+        external
+        payable
+        override
+    {
         revert("not implemented");
     }
 

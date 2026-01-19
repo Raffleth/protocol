@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.33;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -34,16 +34,17 @@ contract RafflInitializeTest is Common {
         assertTrue(gameStatus == IRaffl.GameStatus.Initialized);
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        Raffl(newRaffl).initialize(
-            address(0),
-            ENTRY_PRICE,
-            MIN_ENTRIES,
-            block.timestamp + DEADLINE_FROM_NOW,
-            raffleCreator,
-            prizes,
-            tokenGates,
-            extraRecipient
-        );
+        Raffl(newRaffl)
+            .initialize(
+                address(0),
+                ENTRY_PRICE,
+                MIN_ENTRIES,
+                block.timestamp + DEADLINE_FROM_NOW,
+                raffleCreator,
+                prizes,
+                tokenGates,
+                extraRecipient
+            );
 
         vm.stopPrank();
     }
@@ -57,9 +58,10 @@ contract RafflInitializeTest is Common {
         );
     }
 
-    /// @dev should allow empty prizes
-    function test_AllowsEmptyPrizes() public {
+    /// @dev should not allow empty prizes
+    function test_RevertIf_EmptyPrizes() public {
         vm.prank(raffleCreator);
+        vm.expectRevert(Errors.NoPrizesProvided.selector);
         rafflFactory.createRaffle(
             address(0),
             ENTRY_PRICE,

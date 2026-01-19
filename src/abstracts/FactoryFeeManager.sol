@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (abstracts/FactoryFeeManager.sol)
-pragma solidity ^0.8.27;
+// Raffl Protocol (last updated v2.0.0) (abstracts/FactoryFeeManager.sol)
+pragma solidity ^0.8.33;
 
 import { Errors } from "../libraries/RafflFactoryErrors.sol";
 import { IFeeManager } from "../interfaces/IFeeManager.sol";
@@ -15,7 +15,6 @@ abstract contract FactoryFeeManager is IFactoryFeeManager {
      * CONSTANTS
      *
      */
-
     /// @dev Pool fee is calculated using 18 decimals where 0.05 ether is 5%.
     uint64 internal constant MAX_POOL_FEE = 0.1 ether;
 
@@ -42,10 +41,15 @@ abstract contract FactoryFeeManager is IFactoryFeeManager {
 
     /// @notice Reverts if called by anyone other than the factory fee collector.
     modifier onlyFeeCollector() {
+        _onlyFeeCollector();
+        _;
+    }
+
+    /// @dev Internal function for onlyFeeCollector modifier
+    function _onlyFeeCollector() internal view {
         if (msg.sender != _feeData.feeCollector) {
             revert Errors.NotFeeCollector();
         }
-        _;
     }
 
     /**
@@ -71,9 +75,10 @@ abstract contract FactoryFeeManager is IFactoryFeeManager {
 
     /// @inheritdoc IFactoryFeeManager
     function globalCreationFee() external view override returns (uint64) {
-        return block.timestamp >= _upcomingCreationFee.valueChangeAt
-            ? _upcomingCreationFee.nextValue
-            : _feeData.creationFee;
+        return
+            block.timestamp >= _upcomingCreationFee.valueChangeAt
+                ? _upcomingCreationFee.nextValue
+                : _feeData.creationFee;
     }
 
     /// @inheritdoc IFactoryFeeManager

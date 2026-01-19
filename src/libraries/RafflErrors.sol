@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (libraries/RafflErrors.sol)
-pragma solidity ^0.8.27;
+// Raffl Protocol (last updated v2.0.0) (libraries/RafflErrors.sol)
+pragma solidity ^0.8.33;
 
 /// @title Errors Library for Raffl.sol
 library Errors {
@@ -42,4 +42,16 @@ library Errors {
 
     /// @notice Thrown if token gate restriction is violated.
     error TokenGateRestriction();
+
+    /// @notice Thrown if draw has not started yet.
+    error DrawNotStarted();
+
+    /// @notice Thrown if winner has not been drawn yet.
+    error WinnerNotDrawn();
+
+    /// @notice Thrown if extra recipient share percentage exceeds 100%.
+    error InvalidExtraRecipientShare();
+
+    /// @notice Thrown if ETH transfer fails.
+    error ETHTransferFailed();
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.33;
 
 import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
@@ -97,16 +97,25 @@ contract RafflAutomationTest is Common {
         assertTrue(raffl.upkeepPerformed());
     }
 
-    /// @dev should remove the created raffle from the `_activeRaffles` array after performUpkeep
+    /// @dev should NOT remove the raffle from active raffles after performUpkeep (keeps it until VRF fulfills)
     function test_RemovesActiveRaffleAfterPerformUpkeep() public {
         makeUserBuyEntries(raffl, userA, raffl.minEntries());
         vm.warp(raffl.deadline() + 1);
 
-        performUpkeepOnActiveRaffl(raffl);
+        uint256 requestId = performUpkeepOnActiveRaffl(raffl);
 
-        (address activeRaffle, uint256 activeRafflIdx, bool success) = findActiveRaffle(raffl);
-        assertEq(activeRaffle, address(0));
-        assertEq(activeRafflIdx, 0);
-        assertFalse(success);
+        // After performUpkeep, raffle should STILL be in active raffles
+        (address activeRaffle,, bool success) = findActiveRaffle(raffl);
+        assertEq(activeRaffle, address(raffl));
+        assertTrue(success);
+
+        // Now fulfill the VRF request
+        fullfillVRFOnActiveAndEligibleRaffle(requestId, address(rafflFactory));
+
+        // After VRF fulfillment, raffle should be removed from active raffles
+        (address activeRaffleAfterVRF, uint256 activeRafflIdxAfterVRF, bool successAfterVRF) = findActiveRaffle(raffl);
+        assertEq(activeRaffleAfterVRF, address(0));
+        assertEq(activeRafflIdxAfterVRF, 0);
+        assertFalse(successAfterVRF);
     }
 }

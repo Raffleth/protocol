@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (interfaces/FactoryFeeManager.sol)
-pragma solidity ^0.8.27;
+// Raffl Protocol (last updated v2.0.0) (interfaces/FactoryFeeManager.sol)
+pragma solidity ^0.8.33;
 
 import { IFeeManager } from "./IFeeManager.sol";
 
@@ -12,7 +12,6 @@ interface IFactoryFeeManager is IFeeManager {
      * EVENTS
      *
      */
-
     /// @param feeCollector Address of the new fee collector.
     event FeeCollectorChange(address indexed feeCollector);
 

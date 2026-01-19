@@ -1,20 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.27;
-
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { VRFV2PlusClient } from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+pragma solidity ^0.8.33;
 
 import { Raffl } from "../../../src/Raffl.sol";
 import { IRaffl } from "../../../src/interfaces/IRaffl.sol";
-import { RafflFactory } from "../../../src/RafflFactory.sol";
 import { Errors } from "../../../src/libraries/RafflErrors.sol";
-import { IFeeManager } from "../../../src/interfaces/IFeeManager.sol";
 
 import { Common } from "../../utils/Common.sol";
-import { ERC20Mock } from "../../mocks/ERC20Mock.sol";
-import { VRFCoordinatorV2PlusMock } from "../../mocks/VRFCoordinatorV2PlusMock.sol";
 
 contract RafflFreeEntriesTest is Common {
     Raffl raffl;

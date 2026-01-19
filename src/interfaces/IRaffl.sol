@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
-// Raffl Protocol (last updated v1.0.0) (interfaces/IRaffl.sol)
-pragma solidity ^0.8.27;
+// Raffl Protocol (last updated v2.0.0) (interfaces/IRaffl.sol)
+pragma solidity ^0.8.33;
 
 /// @dev Interface that describes the Prize struct, the GameStatus and initialize function so the `RafflFactory` knows
 /// how to initialize the `Raffl`.
@@ -44,12 +44,14 @@ interface IRaffl {
      * (1) FailedDraw: Raffle deadline was hit by the Chailink Upkeep but minimum entries were not met
      * (2) DrawStarted: Raffle deadline was hit by the Chainlink Upkeep and it's waiting for the Chainlink VRF
      *  with the lucky winner
-     * (3) SuccessDraw: Raffle received the provably fair and verifiable random lucky winner and distributed rewards.
+     * (3) WinnerDrawn: Raffle received the random number and winner is selected, waiting for reward dispersal
+     * (4) SuccessDraw: Raffle distributed rewards to winner.
      */
     enum GameStatus {
         Initialized,
         FailedDraw,
         DrawStarted,
+        WinnerDrawn,
         SuccessDraw
     }
 
@@ -71,12 +73,16 @@ interface IRaffl {
     /// @notice Emit when prizes are refunded.
     event PrizesRefunded();
 
-    /// @notice Emit when a draw is successful.
+    /// @notice Emit when a winner is drawn.
     /// @param requestId The indexed ID of the draw request.
     /// @param winnerEntry The entry that won the draw.
     /// @param user The address of the winner.
     /// @param entries The entries the winner had.
-    event DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries);
+    event WinnerDrawn(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries);
+
+    /// @notice Emit when rewards are successfully dispersed.
+    /// @param winner The address of the winner who received rewards.
+    event RewardsDispersed(address indexed winner);
 
     /// @notice Emit when the criteria for deadline success is met.
     /// @param requestId The indexed ID of the deadline request.
@@ -130,7 +136,8 @@ interface IRaffl {
     /// @notice Sets the criteria as settled, sets the `GameStatus` as `DrawStarted` and emits event
     /// `DeadlineSuccessCriteria`
     /// @dev Access control: `factory` is the only allowed to called this method
-    function setSuccessCriteria(uint256 requestId) external;
+    /// @param vrfRequestId The VRF request ID from Chainlink
+    function setSuccessCriteria(uint256 vrfRequestId) external;
 
     /// @notice Sets the criteria as settled, sets the `GameStatus` as `FailedDraw` and emits event
     /// `DeadlineFailedCriteria`
@@ -164,8 +171,22 @@ interface IRaffl {
     /// @dev Invokable when the draw was not made because the min entries were not enought
     function refundPrizes() external;
 
-    /// @notice Transfers the `prizes` to the provably fair and verifiable entrant, sets the `GameStatus` as
-    /// `SuccessDraw` and emits event `DrawSuccess`
+    /// @notice Sets the winner based on the random number from VRF, emits event `WinnerDrawn`
     /// @dev Access control: `factory` is the only allowed to called this method through the Chainlink VRF Coordinator
-    function disperseRewards(uint256 requestId, uint256 randomNumber) external;
+    /// @param vrfRequestId The VRF request ID from Chainlink
+    /// @param randomNumber The random number from VRF used to select winner
+    function setWinner(uint256 vrfRequestId, uint256 randomNumber) external;
+
+    /// @notice Returns the VRF request ID
+    function requestId() external view returns (uint256);
+
+    /// @notice Returns the winner address
+    function winner() external view returns (address);
+
+    /// @notice Checks if winner is drawn but rewards not yet dispersed
+    function shouldDisperseRewards() external view returns (bool);
+
+    /// @notice Transfers the `prizes` to the winner and sets the `GameStatus` as `SuccessDraw`
+    /// @dev Permissionless - anyone can call this after winner is drawn
+    function disperseRewards() external;
 }

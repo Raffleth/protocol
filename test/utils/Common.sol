@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.33;
 
 import { Test, Vm } from "forge-std/src/Test.sol";
 
@@ -208,16 +208,31 @@ abstract contract Common is Test {
         public
         returns (address winnerUser)
     {
+        // Step 1: VRF fulfills and sets winner
         vm.recordLogs();
         vrfCoordinator.fulfillRandomWords(requestId, consumer);
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
         if (entries.length >= 2) {
-            assertEq(entries[entries.length - 2].topics[0], keccak256("DrawSuccess(uint256,uint256,address,uint256)"));
-            // DrawSuccess(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries)
+            assertEq(entries[entries.length - 2].topics[0], keccak256("WinnerDrawn(uint256,uint256,address,uint256)"));
+            // WinnerDrawn(uint256 indexed requestId, uint256 winnerEntry, address user, uint256 entries)
             (, winnerUser,) = abi.decode(entries[entries.length - 2].data, (uint256, address, uint256));
         } else {
-            revert("RandomWordsFulfilled failed executing `disperseRewards`");
+            revert("RandomWordsFulfilled failed executing `setWinner`");
+        }
+
+        // Step 2: Get raffle address from requestId and disperse rewards
+        address raffle = address(0);
+        for (uint256 i = 0; i < rafflFactory.activeRaffles().length; i++) {
+            address current = rafflFactory.activeRaffles()[i].raffle;
+            if (IRaffl(current).requestId() == requestId) {
+                raffle = current;
+                break;
+            }
+        }
+
+        if (raffle != address(0)) {
+            rafflFactory.disperseRewards(raffle);
         }
     }
 
